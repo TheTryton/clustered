@@ -15,9 +15,6 @@ public:
     virtual void onShutdown() override;
 
 private:
-    bgfx::VertexBufferHandle pointLightVertexBuffer;
-    bgfx::IndexBufferHandle pointLightIndexBuffer;
-
     enum GBufferAttachment : size_t
     {
         // no world position
@@ -26,6 +23,7 @@ private:
         // RGB = diffuse
         // A = a (remapped roughness)
         Diffuse_A,
+        Position,
 
         // RG = encoded normal
         Normal,
@@ -46,6 +44,7 @@ private:
 
     static constexpr bgfx::TextureFormat::Enum gBufferAttachmentFormats[GBufferAttachment::Count - 1] = {
         bgfx::TextureFormat::BGRA8,
+        bgfx::TextureFormat::RG32F,
         bgfx::TextureFormat::RG16F,
         bgfx::TextureFormat::BGRA8,
         bgfx::TextureFormat::BGRA8
@@ -61,11 +60,10 @@ private:
     bgfx::TextureHandle lightDepthTexture;
     bgfx::FrameBufferHandle accumFrameBuffer;
 
-    bgfx::UniformHandle lightIndexVecUniform;
+    bgfx::UniformHandle cameraPosition;
 
     bgfx::ProgramHandle geometryProgram;
     bgfx::ProgramHandle fullscreenProgram;
-    bgfx::ProgramHandle pointLightProgram;
     bgfx::ProgramHandle transparencyProgram;
 
     static bgfx::FrameBufferHandle createGBuffer();

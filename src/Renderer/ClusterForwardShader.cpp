@@ -1,4 +1,4 @@
-#include "ClusterShader.h"
+#include "ClusterForwardShader.h"
 
 #include "Scene/Scene.h"
 #include "Renderer/Samplers.h"
@@ -6,9 +6,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <cmath>
 
-bgfx::VertexLayout ClusterShader::ClusterVertex::layout;
+bgfx::VertexLayout ClusterForwardShader::ClusterVertex::layout;
 
-ClusterShader::ClusterShader() :
+ClusterForwardShader::ClusterForwardShader() :
     clusterSizesVecUniform(BGFX_INVALID_HANDLE),
     zNearFarVecUniform(BGFX_INVALID_HANDLE),
     clustersBuffer(BGFX_INVALID_HANDLE),
@@ -21,7 +21,7 @@ ClusterShader::ClusterShader() :
                   "number of cluster depth slices must be divisible by thread count z-dimension");
 }
 
-void ClusterShader::initialize()
+void ClusterForwardShader::initialize()
 {
     ClusterVertex::init();
 
@@ -37,7 +37,7 @@ void ClusterShader::initialize()
     atomicIndexBuffer = bgfx::createDynamicIndexBuffer(1, BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_INDEX32);
 }
 
-void ClusterShader::shutdown()
+void ClusterForwardShader::shutdown()
 {
     bgfx::destroy(clusterSizesVecUniform);
     bgfx::destroy(zNearFarVecUniform);
@@ -52,7 +52,7 @@ void ClusterShader::shutdown()
     lightIndicesBuffer = lightGridBuffer = atomicIndexBuffer = BGFX_INVALID_HANDLE;
 }
 
-void ClusterShader::setUniforms(const Scene* scene, uint16_t screenWidth, uint16_t screenHeight) const
+void ClusterForwardShader::setUniforms(const Scene* scene, uint16_t screenWidth, uint16_t screenHeight) const
 {
     assert(scene != nullptr);
 
@@ -64,7 +64,7 @@ void ClusterShader::setUniforms(const Scene* scene, uint16_t screenWidth, uint16
     bgfx::setUniform(zNearFarVecUniform, zNearFarVec);
 }
 
-void ClusterShader::bindBuffers(bool lightingPass) const
+void ClusterForwardShader::bindBuffers(bool lightingPass) const
 {
     // binding ReadWrite in the fragment shader doesn't work with D3D11/12
     bgfx::Access::Enum access = lightingPass ? bgfx::Access::Read : bgfx::Access::ReadWrite;

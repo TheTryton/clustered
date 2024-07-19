@@ -1,4 +1,4 @@
-#include "ClusteredRenderer.h"
+#include "ClusteredForwardRenderer.h"
 
 #include "Scene/Scene.h"
 #include <bigg.hpp>
@@ -7,7 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/ext/matrix_relational.hpp>
 
-ClusteredRenderer::ClusteredRenderer(const Scene* scene) :
+ClusteredForwardRenderer::ClusteredForwardRenderer(const Scene* scene) :
     Renderer(scene),
     oldProjMat(glm::zero<glm::mat4>()),
     clusterBuildingComputeProgram(BGFX_INVALID_HANDLE),
@@ -17,7 +17,7 @@ ClusteredRenderer::ClusteredRenderer(const Scene* scene) :
 {
 }
 
-bool ClusteredRenderer::supported()
+bool ClusteredForwardRenderer::supported()
 {
     const bgfx::Caps* caps = bgfx::getCaps();
     return Renderer::supported() &&
@@ -27,7 +27,7 @@ bool ClusteredRenderer::supported()
            (caps->supported & BGFX_CAPS_INDEX32) != 0;
 }
 
-void ClusteredRenderer::onInitialize()
+void ClusteredForwardRenderer::onInitialize()
 {
     // OpenGL backend: uniforms must be created before loading shaders
     clusters.initialize();
@@ -40,15 +40,15 @@ void ClusteredRenderer::onInitialize()
     bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_clustered_lightculling.bin");
     lightCullingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
-    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_clustered.bin");
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered.bin");
+    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_clustered_forward.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered_forward.bin");
     lightingProgram = bigg::loadProgram(vsName, fsName);
 
     bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered_debug_vis.bin");
     debugVisProgram = bigg::loadProgram(vsName, fsName);
 }
 
-void ClusteredRenderer::onRender(float dt)
+void ClusteredForwardRenderer::onRender(float dt)
 {
     enum : bgfx::ViewId
     {
@@ -104,9 +104,9 @@ void ClusteredRenderer::onRender(float dt)
 
         bgfx::dispatch(vClusterBuilding,
                        clusterBuildingComputeProgram,
-                       ClusterShader::CLUSTERS_X / ClusterShader::CLUSTERS_X_THREADS,
-                       ClusterShader::CLUSTERS_Y / ClusterShader::CLUSTERS_Y_THREADS,
-                       ClusterShader::CLUSTERS_Z / ClusterShader::CLUSTERS_Z_THREADS);
+                       ClusterForwardShader::CLUSTERS_X / ClusterForwardShader::CLUSTERS_X_THREADS,
+                       ClusterForwardShader::CLUSTERS_Y / ClusterForwardShader::CLUSTERS_Y_THREADS,
+                       ClusterForwardShader::CLUSTERS_Z / ClusterForwardShader::CLUSTERS_Z_THREADS);
     }
 
     // light culling
@@ -116,9 +116,9 @@ void ClusteredRenderer::onRender(float dt)
 
     bgfx::dispatch(vLightCulling,
                    lightCullingComputeProgram,
-                   ClusterShader::CLUSTERS_X / ClusterShader::CLUSTERS_X_THREADS,
-                   ClusterShader::CLUSTERS_Y / ClusterShader::CLUSTERS_Y_THREADS,
-                   ClusterShader::CLUSTERS_Z / ClusterShader::CLUSTERS_Z_THREADS);
+                   ClusterForwardShader::CLUSTERS_X / ClusterForwardShader::CLUSTERS_X_THREADS,
+                   ClusterForwardShader::CLUSTERS_Y / ClusterForwardShader::CLUSTERS_Y_THREADS,
+                   ClusterForwardShader::CLUSTERS_Z / ClusterForwardShader::CLUSTERS_Z_THREADS);
     // lighting
 
     bool debugVis = variables["DEBUG_VIS"] == "true";
@@ -146,7 +146,7 @@ void ClusteredRenderer::onRender(float dt)
     bgfx::discard(BGFX_DISCARD_ALL);
 }
 
-void ClusteredRenderer::onShutdown()
+void ClusteredForwardRenderer::onShutdown()
 {
     clusters.shutdown();
 

@@ -7,14 +7,14 @@ Config::Config() :
     writeLog(true),
     logFile("Cluster.log"),
     renderer(bgfx::RendererType::Count), // default renderer, chosen by platform
-    renderPath(Cluster::RenderPath::Clustered),
+    renderPath(Cluster::RenderPath::ClusteredForward),
     tonemappingMode(Renderer::TonemappingMode::ACES),
     profile(true),
     vsync(false),
     sceneFile("assets/models/Sponza/glTF/Sponza.gltf"),
     customScene(false),
     lights(1),
-    maxLights(1000),
+    maxLights(1000000),
     movingLights(false),
     fullscreen(false),
     showUI(true),
@@ -33,15 +33,14 @@ void Config::readArgv(int argc, char* argv[])
     // we store pointers into argv for the scene file
     bx::CommandLine cmdLine(argc, argv);
 
+    renderer = bgfx::RendererType::Direct3D12;
+
     if(cmdLine.hasArg("noop"))
         renderer = bgfx::RendererType::Noop;
 	else if(cmdLine.hasArg("gl"))
         renderer = bgfx::RendererType::OpenGL;
     else if(cmdLine.hasArg("vk"))
         renderer = bgfx::RendererType::Vulkan;
-    // missing required features
-    //else if(cmdLine.hasArg("d3d9"))
-    //    renderer = bgfx::RendererType::Direct3D9;
     else if(cmdLine.hasArg("d3d11"))
         renderer = bgfx::RendererType::Direct3D11;
     else if(cmdLine.hasArg("d3d12"))

@@ -18,14 +18,14 @@ set(SOURCES
     Renderer/ForwardRenderer.cpp
     Renderer/DeferredRenderer.h
     Renderer/DeferredRenderer.cpp
-    Renderer/ClusteredRenderer.h
-    Renderer/ClusteredRenderer.cpp
+    Renderer/ClusteredForwardRenderer.h
+    Renderer/ClusteredForwardRenderer.cpp
     Renderer/PBRShader.h
     Renderer/PBRShader.cpp
     Renderer/LightShader.h
     Renderer/LightShader.cpp
-    Renderer/ClusterShader.h
-    Renderer/ClusterShader.cpp
+    Renderer/ClusterForwardShader.h
+    Renderer/ClusterForwardShader.cpp
     Renderer/Samplers.h
 
     Scene/Scene.h
@@ -43,15 +43,14 @@ set(SOURCES
 
 set(SHADERS
     Renderer/Shaders/varying.def.sc
-    Renderer/Shaders/vs_clustered.sc
-    Renderer/Shaders/fs_clustered.sc
+    Renderer/Shaders/vs_clustered_forward.sc
+    Renderer/Shaders/fs_clustered_forward.sc
     Renderer/Shaders/fs_clustered_debug_vis.sc
     Renderer/Shaders/cs_clustered_clusterbuilding.sc
     Renderer/Shaders/cs_clustered_lightculling.sc
     Renderer/Shaders/vs_deferred_geometry.sc
+    Renderer/Shaders/vs_deferred_fullscreen.sc
     Renderer/Shaders/fs_deferred_geometry.sc
-    Renderer/Shaders/vs_deferred_light.sc
-    Renderer/Shaders/fs_deferred_pointlight.sc
     Renderer/Shaders/fs_deferred_fullscreen.sc
     Renderer/Shaders/vs_forward.sc
     Renderer/Shaders/fs_forward.sc
@@ -152,6 +151,8 @@ endforeach()
 
 # add_shader does this, do it manually for includes/varying.def.sc
 source_group("Shader Files" FILES ${SHADERS})
+
+add_dependencies(Cluster invalidate_shaders)
 
 file(COPY ../assets/ DESTINATION ${ASSETS_DIR})
 

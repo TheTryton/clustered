@@ -1,4 +1,4 @@
-$input v_worldpos, v_normal, v_tangent, v_texcoord0
+$input v_normal, v_tangent, v_texcoord0
 
 #define READ_MATERIAL
 
@@ -22,8 +22,7 @@ void main()
 
     // pack G-Buffer
     gl_FragData[0] = vec4(mat.diffuseColor, mat.a);
-    gl_FragData[1] = vec4(v_worldpos, 0.0);
-    gl_FragData[2] = vec4(packNormal(N), 0.0, 0.0);
-    gl_FragData[3] = vec4(mat.F0, mat.metallic);
-    gl_FragData[4] = vec4(mat.emissive, mat.occlusion);
+    gl_FragData[1] = vec4(packNormal(N), 0.0, 0.0);
+    gl_FragData[2] = vec4(mat.F0, mat.metallic);
+    gl_FragData[3] = vec4(mat.emissive, mat.occlusion);
 }

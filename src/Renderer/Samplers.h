@@ -15,14 +15,20 @@ public:
 
     static const uint8_t LIGHTS_POINTLIGHTS = 5;
 
-    static const uint8_t CLUSTERS_CLUSTERS = 6;
-    static const uint8_t CLUSTERS_LIGHTINDICES = 7;
-    static const uint8_t CLUSTERS_LIGHTGRID = 8;
-    static const uint8_t CLUSTERS_ATOMICINDEX = 9;
-
     static const uint8_t DEFERRED_DIFFUSE_A = 6;
-    static const uint8_t DEFERRED_NORMAL = 7;
-    static const uint8_t DEFERRED_F0_METALLIC = 8;
-    static const uint8_t DEFERRED_EMISSIVE_OCCLUSION = 9;
-    static const uint8_t DEFERRED_DEPTH = 10;
+    static const uint8_t DEFERRED_POSITION = 7;
+    static const uint8_t DEFERRED_NORMAL = 8;
+    static const uint8_t DEFERRED_F0_METALLIC = 9;
+    static const uint8_t DEFERRED_EMISSIVE_OCCLUSION = 10;
+    static const uint8_t DEFERRED_DEPTH = 11;
+
+    static const uint8_t CLUSTERS_CLUSTERS = 12;
+    static const uint8_t CLUSTERS_LIGHTINDICES = 13;
+    static const uint8_t CLUSTERS_LIGHTGRID = 14;
+    static const uint8_t CLUSTERS_ATOMICINDEX = 15;
+
+    static const uint8_t TILES_TILES = 12;
+    static const uint8_t TILES_LIGHTINDICES = 13;
+    static const uint8_t TILES_LIGHTGRID = 14;
+    static const uint8_t TILES_ATOMICINDEX = 15;
 };

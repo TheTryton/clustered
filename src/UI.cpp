@@ -140,7 +140,7 @@ void ClusterUI::update(float dt)
         static int renderPathSelected = (int)app.config->renderPath;
         ImGui::RadioButton("Forward", &renderPathSelected, (int)Cluster::RenderPath::Forward);
         ImGui::RadioButton("Deferred", &renderPathSelected, (int)Cluster::RenderPath::Deferred);
-        ImGui::RadioButton("Clustered", &renderPathSelected, (int)Cluster::RenderPath::Clustered);
+        ImGui::RadioButton("Clustered", &renderPathSelected, (int)Cluster::RenderPath::ClusteredForward);
         Cluster::RenderPath path = (Cluster::RenderPath)renderPathSelected;
         if(path != app.config->renderPath)
             app.setRenderPath(path);
@@ -151,7 +151,7 @@ void ClusterUI::update(float dt)
         ImGui::Checkbox("Show stats", &app.config->showStatsOverlay);
         if(buffers)
             ImGui::Checkbox("Show buffers", &app.config->showBuffers);
-        if(path == Cluster::RenderPath::Clustered)
+        if(path == Cluster::RenderPath::ClusteredForward)
         {
             ImGui::Checkbox("Cluster light count visualization", &app.config->debugVisualization);
             app.renderer->setVariable("DEBUG_VIS", app.config->debugVisualization ? "true" : "false");

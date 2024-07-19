@@ -39,6 +39,8 @@ void main()
         b_globalIndex[0] = 0;
     }
 
+    barrier();
+
     Cluster cluster = getCluster(clusterIndex);
     
     // we have a cache of GROUP_SIZE lights
@@ -47,6 +49,8 @@ void main()
     uint lightOffset = 0;
     while(lightOffset < lightCount)
     {
+        barrier();
+
         // read GROUP_SIZE lights into shared memory
         // each thread copies one light
         uint batchSize = min(GROUP_SIZE, lightCount - lightOffset);

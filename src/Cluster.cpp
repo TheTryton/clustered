@@ -6,7 +6,7 @@
 #include "Log/Log.h"
 #include "Renderer/ForwardRenderer.h"
 #include "Renderer/DeferredRenderer.h"
-#include "Renderer/ClusteredRenderer.h"
+#include "Renderer/ClusteredForwardRenderer.h"
 #include <bx/file.h>
 #include <bx/string.h>
 #include <bimg/bimg.h>
@@ -77,7 +77,7 @@ void Cluster::initialize(int _argc, char* _argv[])
         close();
         return;
     }
-    if(!ClusteredRenderer::supported())
+    if(!ClusteredForwardRenderer::supported())
     {
         Log->error("Clustered renderer not supported on this hardware");
         close();
@@ -338,8 +338,8 @@ void Cluster::setRenderPath(RenderPath path)
         case RenderPath::Deferred:
             renderer = std::make_unique<DeferredRenderer>(scene.get());
             break;
-        case RenderPath::Clustered:
-            renderer = std::make_unique<ClusteredRenderer>(scene.get());
+        case RenderPath::ClusteredForward:
+            renderer = std::make_unique<ClusteredForwardRenderer>(scene.get());
             break;
         default:
             assert(false);

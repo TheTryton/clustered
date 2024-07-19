@@ -1,12 +1,12 @@
 #pragma once
 
 #include "Renderer.h"
-#include "ClusterShader.h"
+#include "ClusterForwardShader.h"
 
-class ClusteredRenderer : public Renderer
+class ClusteredForwardRenderer : public Renderer
 {
 public:
-    ClusteredRenderer(const Scene* scene);
+    ClusteredForwardRenderer(const Scene* scene);
 
     static bool supported();
 
@@ -22,5 +22,5 @@ private:
     bgfx::ProgramHandle lightingProgram;
     bgfx::ProgramHandle debugVisProgram;
 
-    ClusterShader clusters;
+    ClusterForwardShader clusters;
 };
