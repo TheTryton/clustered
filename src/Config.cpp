@@ -6,7 +6,7 @@
 Config::Config() :
     writeLog(true),
     logFile("Cluster.log"),
-    renderer(bgfx::RendererType::Count), // default renderer, chosen by platform
+    renderer(bgfx::RendererType::Direct3D11), // default renderer, chosen by platform
     renderPath(Cluster::RenderPath::ClusteredForward),
     tonemappingMode(Renderer::TonemappingMode::ACES),
     multipleScattering(true),
@@ -16,10 +16,10 @@ Config::Config() :
     sceneFile("assets/models/Sponza/glTF/Sponza.gltf"),
     customScene(false),
     lights(1),
-    maxLights(50000),
+    maxLights(65536),
     tilePixelSizeX(16),
     tilePixelSizeY(16),
-    maxLightsPerTileOrCluster(1024),
+    maxLightsPerTileOrCluster(8192),
     movingLights(false),
     fullscreen(false),
     showUI(true),

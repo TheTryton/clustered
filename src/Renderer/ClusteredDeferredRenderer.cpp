@@ -135,9 +135,9 @@ void ClusteredDeferredRenderer::onRender(float dt)
     {
         vClusterBuilding = 0,
         vLightCulling,
-        vGeometry = 0,    // write G-Buffer
-        vFullscreenLights, // write ambient + emissive to output buffer
-        vTransparent      // forward pass for transparency
+        vGeometry,          // write G-Buffer
+        vFullscreenLights,  // write ambient + emissive to output buffer
+        vTransparent        // forward pass for transparency
     };
 
     const uint32_t BLACK = 0x000000FF;
