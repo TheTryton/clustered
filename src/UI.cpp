@@ -109,7 +109,14 @@ void ClusterUI::update(float dt)
         ImGui::Begin("Settings", &app.config->showConfigWindow, ImGuiWindowFlags_AlwaysAutoResize);
 
         if(ImGui::SliderInt("No. of lights", &app.config->lights, 0, app.config->maxLights))
+        {
             app.generateLights(app.config->lights);
+        }
+        if(ImGui::InputInt("No. of lights (input)", &app.config->lights, 0, 0))
+        {
+            app.config->lights = std::max(0, std::min(app.config->lights, app.config->maxLights));
+            app.generateLights(app.config->lights);
+        }
         ImGui::Checkbox("Moving lights", &app.config->movingLights);
 
         ImGui::Separator();
@@ -147,8 +154,12 @@ void ClusterUI::update(float dt)
         static int renderPathSelected = (int)app.config->renderPath;
         ImGui::RadioButton("Forward", &renderPathSelected, (int)Cluster::RenderPath::Forward);
         ImGui::RadioButton("Deferred", &renderPathSelected, (int)Cluster::RenderPath::Deferred);
-        ImGui::RadioButton("Tiled", &renderPathSelected, (int)Cluster::RenderPath::Tiled);
-        ImGui::RadioButton("Clustered", &renderPathSelected, (int)Cluster::RenderPath::Clustered);
+        ImGui::RadioButton("Tiled Forward (One thread per tile)", &renderPathSelected, (int)Cluster::RenderPath::TiledSingleForward);
+        ImGui::RadioButton("Tiled Deferred (One thread per tile)", &renderPathSelected, (int)Cluster::RenderPath::TiledSingleDeferred);
+        ImGui::RadioButton("Tiled Forward (Multiple threads per tile)", &renderPathSelected, (int)Cluster::RenderPath::TiledMultipleForward);
+        ImGui::RadioButton("Tiled Deferred (Multiple threads per tile)", &renderPathSelected, (int)Cluster::RenderPath::TiledMultipleDeferred);
+        ImGui::RadioButton("Clustered Forward", &renderPathSelected, (int)Cluster::RenderPath::ClusteredForward);
+        ImGui::RadioButton("Clustered Deferred", &renderPathSelected, (int)Cluster::RenderPath::ClusteredDeferred);
         Cluster::RenderPath path = (Cluster::RenderPath)renderPathSelected;
         if(path != app.config->renderPath)
             app.setRenderPath(path);
@@ -159,10 +170,38 @@ void ClusterUI::update(float dt)
         ImGui::Checkbox("Show performance stats", &app.config->showStatsOverlay);
         if(buffers)
             ImGui::Checkbox("Show G-Buffer", &app.config->showBuffers);
-        if(path == Cluster::RenderPath::Tiled || path == Cluster::RenderPath::Clustered)
+        if(path == Cluster::RenderPath::TiledSingleForward ||
+           path == Cluster::RenderPath::TiledSingleDeferred ||
+           path == Cluster::RenderPath::TiledMultipleForward ||
+           path == Cluster::RenderPath::TiledMultipleDeferred ||
+           path == Cluster::RenderPath::ClusteredForward ||
+           path == Cluster::RenderPath::ClusteredDeferred
+        )
         {
             ImGui::Checkbox("Cluster light count visualization", &app.config->debugVisualization);
             app.renderer->setVariable("DEBUG_VIS", app.config->debugVisualization ? "true" : "false");
+
+            bool isClustered = (path == Cluster::RenderPath::ClusteredForward || path == Cluster::RenderPath::ClusteredDeferred);
+
+            ImGui::SliderInt(isClustered ? "Max lights per cluster" : "Max lights per tile", &app.config->maxLightsPerTileOrCluster, 4, 8192);
+            ImGui::InputInt(isClustered ? "Max lights per cluster (input)" : "Max lights per tile (input)", &app.config->maxLightsPerTileOrCluster, 0, 0);
+            app.config->maxLightsPerTileOrCluster = std::max(4, std::min(app.config->maxLightsPerTileOrCluster, 8192));
+
+            if(!isClustered)
+            {
+                ImGui::SliderInt("Tile pixel size [X]", &app.config->tilePixelSizeX, 4, 128);
+                ImGui::SameLine();
+                ImGui::SliderInt("Tile pixel size [Y]", &app.config->tilePixelSizeY, 4, 128);
+
+                ImGui::InputInt("Tile pixel size [X] (input)", &app.config->tilePixelSizeX, 0, 0);
+                ImGui::SameLine();
+                ImGui::InputInt("Tile pixel size [Y] (input)", &app.config->tilePixelSizeY, 0, 0);
+
+                app.config->tilePixelSizeX = std::max(4, std::min(app.config->tilePixelSizeX, 128));
+                app.config->tilePixelSizeY = std::max(4, std::min(app.config->tilePixelSizeY, 128));
+            }
+
+            app.renderer->optionsChanged();
         }
 
         ImGui::Separator();

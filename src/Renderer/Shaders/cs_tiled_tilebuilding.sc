@@ -4,6 +4,11 @@
 #include "tiles.sh"
 #include "util.sh"
 
+vec4 createPlaneEquation(vec4 b, vec4 c)
+{
+    return vec4(normalize(cross(b.xyz, c.xyz)), 0.0);
+}
+
 NUM_THREADS(TILES_X_THREADS, TILES_Y_THREADS, 1)
 void main()
 {
@@ -13,11 +18,14 @@ void main()
     if(!isTileValid(tileIndex))
         return;
 
+    vec4 frustrum[4];
     // calculate min (bottom left) and max (top right) xy in screen coordinates
-    vec4 minScreen = vec4( gl_GlobalInvocationID.xy               * u_tileSize.xy, 1.0, 1.0);
-    vec4 maxScreen = vec4((gl_GlobalInvocationID.xy + vec2(1, 1)) * u_tileSize.xy, 1.0, 1.0);
+    frustrum[0] = screen2Eye(vec4((gl_GlobalInvocationID.xy + vec2(0, 0)) * u_tileSize.xy, 1.0, 1.0));
+    frustrum[1] = screen2Eye(vec4((gl_GlobalInvocationID.xy + vec2(1, 0)) * u_tileSize.xy, 1.0, 1.0));
+    frustrum[2] = screen2Eye(vec4((gl_GlobalInvocationID.xy + vec2(1, 1)) * u_tileSize.xy, 1.0, 1.0));
+    frustrum[3] = screen2Eye(vec4((gl_GlobalInvocationID.xy + vec2(0, 1)) * u_tileSize.xy, 1.0, 1.0));
 
-    // -> eye coordinates
+    /*// -> eye coordinates
     // z is the camera far plane (1 in screen coordinates)
     vec3 minEye = screen2Eye(minScreen).xyz;
     vec3 maxEye = screen2Eye(maxScreen).xyz;
@@ -34,8 +42,10 @@ void main()
     // get extent of the tile in all dimensions (axis-aligned bounding box)
     // there is some overlap here but it's easier to calculate intersections with AABB
     vec3 minBounds = min(min(minNear, minFar), min(maxNear, maxFar));
-    vec3 maxBounds = max(max(minNear, minFar), max(maxNear, maxFar));
+    vec3 maxBounds = max(max(minNear, minFar), max(maxNear, maxFar));*/
 
-    b_tiles[2 * tileIndex + 0] = vec4(minBounds, 1.0);
-    b_tiles[2 * tileIndex + 1] = vec4(maxBounds, 1.0);
+    b_tiles[4 * tileIndex + 0] = createPlaneEquation(frustrum[0], frustrum[1]);
+    b_tiles[4 * tileIndex + 1] = createPlaneEquation(frustrum[1], frustrum[2]);
+    b_tiles[4 * tileIndex + 2] = createPlaneEquation(frustrum[2], frustrum[3]);
+    b_tiles[4 * tileIndex + 3] = createPlaneEquation(frustrum[3], frustrum[0]);
 }

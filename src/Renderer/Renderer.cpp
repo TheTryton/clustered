@@ -14,7 +14,7 @@
 
 bgfx::VertexLayout Renderer::PosVertex::layout;
 
-Renderer::Renderer(const Scene* scene) : scene(scene) { }
+Renderer::Renderer(const Scene* scene, const Config* config) : scene(scene), config(config) { }
 
 void Renderer::initialize()
 {
@@ -57,6 +57,11 @@ void Renderer::reset(uint16_t width, uint16_t height)
     this->height = height;
 
     onReset();
+}
+
+void Renderer::optionsChanged()
+{
+    onOptionsChanged();
 }
 
 void Renderer::render(float dt)

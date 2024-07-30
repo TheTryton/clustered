@@ -6,15 +6,16 @@
 #include "Log/Log.h"
 #include "Renderer/ForwardRenderer.h"
 #include "Renderer/DeferredRenderer.h"
-#include "Renderer/TiledRenderer.h"
-#include "Renderer/ClusteredRenderer.h"
-#include <bx/file.h>
+#include "Renderer/TiledSingleForwardRenderer.h"
+#include "Renderer/TiledSingleDeferredRenderer.h"
+#include "Renderer/TiledMultipleForwardRenderer.h"
+#include "Renderer/TiledMultipleDeferredRenderer.h"
+#include "Renderer/ClusteredForwardRenderer.h"
+#include "Renderer/ClusteredDeferredRenderer.h"
 #include <bx/string.h>
 #include <bimg/bimg.h>
-#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/component_wise.hpp>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <algorithm>
 #include <random>
 
 Cluster::Cluster() :
@@ -67,13 +68,19 @@ void Cluster::initialize(int _argc, char* _argv[])
         close();
         return;
     }
-    if(!TiledRenderer::supported())
+    if(!TiledSingleForwardRenderer::supported())
     {
         Log->error("Tiled renderer not supported on this hardware");
         close();
         return;
     }
-    if(!ClusteredRenderer::supported())
+    if(!TiledMultipleForwardRenderer::supported())
+    {
+        Log->error("Tiled renderer not supported on this hardware");
+        close();
+        return;
+    }
+    if(!ClusteredForwardRenderer::supported())
     {
         Log->error("Clustered renderer not supported on this hardware");
         close();
@@ -290,16 +297,28 @@ void Cluster::setRenderPath(RenderPath path)
     switch(path)
     {
         case RenderPath::Forward:
-            renderer = std::make_unique<ForwardRenderer>(scene.get());
+            renderer = std::make_unique<ForwardRenderer>(scene.get(), config.get());
             break;
         case RenderPath::Deferred:
-            renderer = std::make_unique<DeferredRenderer>(scene.get());
+            renderer = std::make_unique<DeferredRenderer>(scene.get(), config.get());
             break;
-        case RenderPath::Tiled:
-            renderer = std::make_unique<TiledRenderer>(scene.get());
+        case RenderPath::TiledSingleForward:
+            renderer = std::make_unique<TiledSingleForwardRenderer>(scene.get(), config.get());
             break;
-        case RenderPath::Clustered:
-            renderer = std::make_unique<ClusteredRenderer>(scene.get());
+        case RenderPath::TiledSingleDeferred:
+            renderer = std::make_unique<TiledSingleDeferredRenderer>(scene.get(), config.get());
+            break;
+        case RenderPath::TiledMultipleForward:
+            renderer = std::make_unique<TiledMultipleForwardRenderer>(scene.get(), config.get());
+            break;
+        case RenderPath::TiledMultipleDeferred:
+            renderer = std::make_unique<TiledMultipleDeferredRenderer>(scene.get(), config.get());
+            break;
+        case RenderPath::ClusteredForward:
+            renderer = std::make_unique<ClusteredForwardRenderer>(scene.get(), config.get());
+            break;
+        case RenderPath::ClusteredDeferred:
+            renderer = std::make_unique<ClusteredDeferredRenderer>(scene.get(), config.get());
             break;
         default:
             assert(false);

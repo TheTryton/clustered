@@ -1,15 +1,14 @@
-#include "DeferredRenderer.h"
+#include "TiledMultipleDeferredRenderer.h"
 
 #include "Scene/Scene.h"
+#include "Config.h"
 #include "Renderer/Samplers.h"
 #include <bigg.hpp>
 #include <bx/string.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/ext/matrix_relational.hpp>
 
-constexpr bgfx::TextureFormat::Enum
-    DeferredRenderer::gBufferAttachmentFormats[DeferredRenderer::GBufferAttachment::Count - 1];
-
-DeferredRenderer::DeferredRenderer(const Scene* scene, const Config* config) :
+TiledMultipleDeferredRenderer::TiledMultipleDeferredRenderer(const Scene* scene, const Config* config) :
     Renderer(scene, config),
     gBufferTextures { { BGFX_INVALID_HANDLE, "Diffuse + roughness" },
                       { BGFX_INVALID_HANDLE, "Normal" },
@@ -31,10 +30,14 @@ DeferredRenderer::DeferredRenderer(const Scene* scene, const Config* config) :
     buffers = gBufferTextures;
 }
 
-bool DeferredRenderer::supported()
+bool TiledMultipleDeferredRenderer::supported()
 {
     const bgfx::Caps* caps = bgfx::getCaps();
     bool supported = Renderer::supported() &&
+                     // compute shader
+                     (caps->supported & BGFX_CAPS_COMPUTE) != 0 &&
+                     // 32-bit index buffers, used for light grid structure
+                     (caps->supported & BGFX_CAPS_INDEX32) != 0 &&
                      // blitting depth texture after geometry pass
                      (caps->supported & BGFX_CAPS_TEXTURE_BLIT) != 0 &&
                      // multiple render targets
@@ -52,53 +55,47 @@ bool DeferredRenderer::supported()
     return true;
 }
 
-void DeferredRenderer::onInitialize()
+void TiledMultipleDeferredRenderer::onInitialize()
 {
+    // OpenGL backend: uniforms must be created before loading shaders
+    tiles.initialize();
+
     for(size_t i = 0; i < BX_COUNTOF(gBufferSamplers); i++)
     {
         gBufferSamplers[i] = bgfx::createUniform(gBufferSamplerNames[i], bgfx::UniformType::Sampler);
     }
 
-    // axis-aligned bounding box used as light geometry for light culling
-    constexpr float LEFT = -1.0f, RIGHT = 1.0f, BOTTOM = -1.0f, TOP = 1.0f, FRONT = -1.0f, BACK = 1.0f;
-    const PosVertex vertices[8] = {
-        { LEFT, BOTTOM, FRONT }, { RIGHT, BOTTOM, FRONT }, { LEFT, TOP, FRONT }, { RIGHT, TOP, FRONT },
-        { LEFT, BOTTOM, BACK },  { RIGHT, BOTTOM, BACK },  { LEFT, TOP, BACK },  { RIGHT, TOP, BACK },
-    };
-    const uint16_t indices[6 * 6] = {
-        // CCW
-        0, 1, 3, 3, 2, 0, // front
-        5, 4, 6, 6, 7, 5, // back
-        4, 0, 2, 2, 6, 4, // left
-        1, 5, 7, 7, 3, 1, // right
-        2, 3, 7, 7, 6, 2, // top
-        4, 5, 1, 1, 0, 4  // bottom
-    };
+    char csName[128], vsName[128], fsName[128];
 
-    pointLightVertexBuffer = bgfx::createVertexBuffer(bgfx::copy(&vertices, sizeof(vertices)), PosVertex::layout);
-    pointLightIndexBuffer = bgfx::createIndexBuffer(bgfx::copy(&indices, sizeof(indices)));
+    bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_tiled_tilebuilding.bin");
+    tileBuildingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
-    char vsName[128], fsName[128];
+    bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_tiled_lightculling_multiple_thread_per_tile.bin");
+    lightCullingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
     bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_deferred_geometry.bin");
     bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_deferred_geometry.bin");
     geometryProgram = bigg::loadProgram(vsName, fsName);
 
     bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_deferred_fullscreen.bin");
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_deferred_fullscreen.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_deferred_fullscreen.bin");
     fullscreenProgram = bigg::loadProgram(vsName, fsName);
 
-    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_deferred_light.bin");
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_deferred_pointlight.bin");
-    pointLightProgram = bigg::loadProgram(vsName, fsName);
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_debug_vis_deferred.bin");
+    debugVisFullscreenProgram = bigg::loadProgram(vsName, fsName);
 
-    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_forward.bin");
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_forward.bin");
+    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_tiled_forward.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_forward.bin");
     transparencyProgram = bigg::loadProgram(vsName, fsName);
+
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_debug_vis_forward.bin");
+    debugVisTransparencyProgram = bigg::loadProgram(vsName, fsName);
 }
 
-void DeferredRenderer::onReset()
+void TiledMultipleDeferredRenderer::onReset()
 {
+    buffersNeedUpdate = true;
+
     if(!bgfx::isValid(gBuffer))
     {
         gBuffer = createGBuffer();
@@ -128,35 +125,43 @@ void DeferredRenderer::onReset()
     }
 }
 
-void DeferredRenderer::onRender(float dt)
+void TiledMultipleDeferredRenderer::onRender(float dt)
 {
+    if(buffersNeedUpdate)
+    {
+        tiles.updateBuffers(width, height, config->maxLightsPerTileOrCluster, config->tilePixelSizeX, config->tilePixelSizeY);
+        buffersNeedUpdate = false;
+    }
+
     enum : bgfx::ViewId
     {
+        vTileBuilding = 0,
+        vLightCulling,
         vGeometry = 0,    // write G-Buffer
-        vFullscreenLight, // write ambient + emissive to output buffer
-        vLight,           // render lights to output buffer
+        vFullscreenLights, // write ambient + emissive to output buffer
         vTransparent      // forward pass for transparency
     };
 
     const uint32_t BLACK = 0x000000FF;
 
-    bgfx::setViewName(vGeometry, "Deferred geometry pass");
+    bgfx::setViewName(vTileBuilding, "Tile building pass (compute)");
+    // set u_viewRect for screen2Eye to work correctly
+    bgfx::setViewRect(vTileBuilding, 0, 0, width, height);
+
+    bgfx::setViewName(vLightCulling, "Tile light culling pass (compute)");
+    bgfx::setViewRect(vLightCulling, 0, 0, width, height);
+
+    bgfx::setViewName(vGeometry, "Deferred tiled geometry pass");
     bgfx::setViewClear(vGeometry, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, BLACK, 1.0f);
     bgfx::setViewRect(vGeometry, 0, 0, width, height);
     bgfx::setViewFrameBuffer(vGeometry, gBuffer);
     bgfx::touch(vGeometry);
 
-    bgfx::setViewName(vFullscreenLight, "Deferred light pass (ambient + emissive)");
-    bgfx::setViewClear(vFullscreenLight, BGFX_CLEAR_COLOR, clearColor);
-    bgfx::setViewRect(vFullscreenLight, 0, 0, width, height);
-    bgfx::setViewFrameBuffer(vFullscreenLight, accumFrameBuffer);
-    bgfx::touch(vFullscreenLight);
-
-    bgfx::setViewName(vLight, "Deferred light pass (point lights)");
-    bgfx::setViewClear(vLight, BGFX_CLEAR_NONE);
-    bgfx::setViewRect(vLight, 0, 0, width, height);
-    bgfx::setViewFrameBuffer(vLight, accumFrameBuffer);
-    bgfx::touch(vLight);
+    bgfx::setViewName(vFullscreenLights, "Deferred tiled light pass (point lights + ambient + emissive)");
+    bgfx::setViewClear(vFullscreenLights, BGFX_CLEAR_COLOR, clearColor);
+    bgfx::setViewRect(vFullscreenLights, 0, 0, width, height);
+    bgfx::setViewFrameBuffer(vFullscreenLights, accumFrameBuffer);
+    bgfx::touch(vFullscreenLights);
 
     bgfx::setViewName(vTransparent, "Transparent forward pass");
     bgfx::setViewClear(vTransparent, BGFX_CLEAR_NONE);
@@ -167,10 +172,52 @@ void DeferredRenderer::onRender(float dt)
     if(!scene->loaded)
         return;
 
+    tiles.setUniforms(scene, width, height);
+
+    // tile building needs u_invProj to transform screen coordinates to eye space
+    setViewProjection(vTileBuilding);
+    // light culling needs u_view to transform lights to eye space
+    setViewProjection(vLightCulling);
     setViewProjection(vGeometry);
-    setViewProjection(vFullscreenLight);
-    setViewProjection(vLight);
+    setViewProjection(vFullscreenLights);
     setViewProjection(vTransparent);
+
+    // tile building
+
+    // only run this step if the camera parameters changed (aspect ratio, fov, near/far plane)
+    // tile bounds are saved in camera coordinates, so they don't change with camera movement
+
+    // ideally we'd compare the relative error here but a correct implementation would involve
+    // a bunch of costly matrix operations: https://floating-point-gui.de/errors/comparison/
+    // comparing the absolute error against a rather small epsilon here works as long as the values
+    // in the projection matrix aren't getting too large
+    const auto tilePixelSizes = tiles.getTilePixelSize();
+    const auto tilePixelSizeX = std::get<0>(tilePixelSizes);
+    const auto tilePixelSizeY = std::get<1>(tilePixelSizes);
+    bool buildTiles = glm::any(glm::notEqual(projMat, oldProjMat, 0.00001f));
+    if(buildTiles)
+    {
+        oldProjMat = projMat;
+
+        tiles.bindBuffers(false /*lightingPass*/); // write access, all buffers
+
+        bgfx::dispatch(vTileBuilding,
+                       tileBuildingComputeProgram,
+                       (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX)),
+                       (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY)),
+                       1);
+    }
+
+    // light culling
+
+    lights.bindLights(scene);
+    tiles.bindBuffers(false);
+
+    bgfx::dispatch(vLightCulling,
+                   lightCullingComputeProgram,
+                   (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX)),
+                   (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY)),
+                   1);
 
     // render geometry, write to G-Buffer
 
@@ -196,7 +243,7 @@ void DeferredRenderer::onRender(float dt)
     // copy G-Buffer depth attachment to depth texture for sampling in the light pass
     // we can't attach it to the frame buffer and read it in the shader (unprojecting world position) at the same time
     // blit happens before any compute or draw calls
-    bgfx::blit(vFullscreenLight, lightDepthTexture, 0, 0, bgfx::getTexture(gBuffer, GBufferAttachment::Depth));
+    bgfx::blit(vFullscreenLights, lightDepthTexture, 0, 0, bgfx::getTexture(gBuffer, GBufferAttachment::Depth));
 
     // bind these once for all following submits
     // excluding BGFX_DISCARD_TEXTURE_SAMPLERS from the discard flags passed to submit makes sure
@@ -204,50 +251,21 @@ void DeferredRenderer::onRender(float dt)
     bindGBuffer();
     pbr.bindAlbedoLUT();
     lights.bindLights(scene);
+    tiles.bindBuffers(true);
 
-    // ambient light + emissive
+    // point lights + ambient light + emissive
 
     // full screen triangle, moved to far plane in the shader
     // only render if the geometry is in front so we leave the background untouched
+    bool debugVis = variables["DEBUG_VIS"] == "true";
+    bgfx::ProgramHandle programFullscreen = debugVis ? debugVisFullscreenProgram : fullscreenProgram;
     bgfx::setVertexBuffer(0, blitTriangleBuffer);
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_CULL_CW);
-    bgfx::submit(vFullscreenLight, fullscreenProgram, 0, ~BGFX_DISCARD_BINDINGS);
-
-    // point lights
-
-    bgfx::setVertexBuffer(0, pointLightVertexBuffer);
-    bgfx::setIndexBuffer(pointLightIndexBuffer);
-
-    const uint16_t instanceStride = 64 + 16; // 64 bytes for mat4x4 and 16 for vec4 (lightIndex)
-    // use instancing
-    bgfx::InstanceDataBuffer idb{};
-    const auto lightsCount = static_cast<uint32_t>(scene->pointLights.lights.size());
-    const auto drawnLights = static_cast<uint32_t>(bgfx::getAvailInstanceDataBuffer(lightsCount, instanceStride));
-    bgfx::allocInstanceDataBuffer(&idb, drawnLights, instanceStride);
-    uint8_t* instanceData = idb.data;
-    for(size_t i = 0; i < drawnLights; i++)
-    {
-        const PointLight& light = scene->pointLights.lights[i];
-        float radius = light.calculateRadius();
-        glm::mat4 scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3(radius));
-        glm::mat4 translate = glm::translate(glm::identity<glm::mat4>(), light.position);
-        glm::mat4 model = translate * scale;
-        float lightIndexVec[4] = { (float)i };
-        std::memcpy(instanceData + instanceStride * i, glm::value_ptr(model), 64);
-        std::memcpy(instanceData + instanceStride * i + 64, lightIndexVec, 16);
-    }
-
-    bgfx::setInstanceDataBuffer(&idb);
-
-    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GEQUAL | BGFX_STATE_CULL_CCW |
-                   BGFX_STATE_BLEND_ADD);
-    bgfx::submit(vLight,
-                 pointLightProgram,
-                 0,
-                 ~(BGFX_DISCARD_VERTEX_STREAMS | BGFX_DISCARD_INDEX_BUFFER | BGFX_DISCARD_BINDINGS));
+    bgfx::submit(vFullscreenLights, programFullscreen, 0, ~BGFX_DISCARD_BINDINGS);
 
     // transparent
 
+    bgfx::ProgramHandle programTransparency = debugVis ? debugVisTransparencyProgram : transparencyProgram;
     for(const Mesh& mesh : scene->meshes)
     {
         const Material& mat = scene->materials[mesh.material];
@@ -260,26 +278,35 @@ void DeferredRenderer::onRender(float dt)
             bgfx::setIndexBuffer(mesh.indexBuffer);
             uint64_t materialState = pbr.bindMaterial(mat);
             bgfx::setState(state | materialState);
-            bgfx::submit(vTransparent, transparencyProgram, 0, ~BGFX_DISCARD_BINDINGS);
+            bgfx::submit(vTransparent, programTransparency, 0, ~BGFX_DISCARD_BINDINGS);
         }
     }
 
     bgfx::discard(BGFX_DISCARD_ALL);
 }
 
-void DeferredRenderer::onShutdown()
+void TiledMultipleDeferredRenderer::onOptionsChanged()
 {
+    buffersNeedUpdate = true;
+}
+
+void TiledMultipleDeferredRenderer::onShutdown()
+{
+    tiles.shutdown();
+
+    bgfx::destroy(tileBuildingComputeProgram);
+    bgfx::destroy(lightCullingComputeProgram);
     bgfx::destroy(geometryProgram);
-    bgfx::destroy(pointLightProgram);
     bgfx::destroy(fullscreenProgram);
     bgfx::destroy(transparencyProgram);
+    bgfx::destroy(debugVisFullscreenProgram);
+    bgfx::destroy(debugVisTransparencyProgram);
+
     for(bgfx::UniformHandle& handle : gBufferSamplers)
     {
         bgfx::destroy(handle);
         handle = BGFX_INVALID_HANDLE;
     }
-    bgfx::destroy(pointLightVertexBuffer);
-    bgfx::destroy(pointLightIndexBuffer);
     if(bgfx::isValid(lightDepthTexture))
         bgfx::destroy(lightDepthTexture);
     if(bgfx::isValid(gBuffer))
@@ -287,15 +314,15 @@ void DeferredRenderer::onShutdown()
     if(bgfx::isValid(accumFrameBuffer))
         bgfx::destroy(accumFrameBuffer);
 
-    geometryProgram = fullscreenProgram = pointLightProgram = transparencyProgram = BGFX_INVALID_HANDLE;
-    pointLightVertexBuffer = BGFX_INVALID_HANDLE;
-    pointLightIndexBuffer = BGFX_INVALID_HANDLE;
     lightDepthTexture = BGFX_INVALID_HANDLE;
     gBuffer = BGFX_INVALID_HANDLE;
     accumFrameBuffer = BGFX_INVALID_HANDLE;
+
+    tileBuildingComputeProgram = lightCullingComputeProgram = geometryProgram =
+        fullscreenProgram = transparencyProgram = debugVisFullscreenProgram = debugVisTransparencyProgram = BGFX_INVALID_HANDLE;
 }
 
-bgfx::FrameBufferHandle DeferredRenderer::createGBuffer()
+bgfx::FrameBufferHandle TiledMultipleDeferredRenderer::createGBuffer()
 {
     bgfx::TextureHandle textures[GBufferAttachment::Count];
 
@@ -321,7 +348,7 @@ bgfx::FrameBufferHandle DeferredRenderer::createGBuffer()
     return gb;
 }
 
-void DeferredRenderer::bindGBuffer()
+void TiledMultipleDeferredRenderer::bindGBuffer()
 {
     for(size_t i = 0; i < GBufferAttachment::Count; i++)
     {

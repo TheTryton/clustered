@@ -1,22 +1,37 @@
 #pragma once
 
 #include "Renderer.h"
+#include "ClusterShader.h"
 
-class DeferredRenderer : public Renderer
+class ClusteredDeferredRenderer : public Renderer
 {
 public:
-    DeferredRenderer(const Scene* scene, const Config* config);
+    ClusteredDeferredRenderer(const Scene* scene, const Config* config);
 
     static bool supported();
 
     virtual void onInitialize() override;
-    virtual void onReset() override;
     virtual void onRender(float dt) override;
+    virtual void onReset() override;
+    virtual void onOptionsChanged() override;
     virtual void onShutdown() override;
 
 private:
-    bgfx::VertexBufferHandle pointLightVertexBuffer = BGFX_INVALID_HANDLE;
-    bgfx::IndexBufferHandle pointLightIndexBuffer = BGFX_INVALID_HANDLE;
+    bool buffersNeedUpdate = true;
+
+    glm::mat4 oldProjMat = glm::mat4(0.0f);
+
+    bgfx::ProgramHandle clusterBuildingComputeProgram = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle lightCullingComputeProgram = BGFX_INVALID_HANDLE;
+
+    bgfx::ProgramHandle geometryProgram = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle fullscreenProgram = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle transparencyProgram = BGFX_INVALID_HANDLE;
+
+    bgfx::ProgramHandle debugVisFullscreenProgram = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle debugVisTransparencyProgram = BGFX_INVALID_HANDLE;
+
+    ClusterShader clusters;
 
     enum GBufferAttachment : size_t
     {
@@ -65,11 +80,6 @@ private:
 
     bgfx::TextureHandle lightDepthTexture = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle accumFrameBuffer = BGFX_INVALID_HANDLE;
-
-    bgfx::ProgramHandle geometryProgram = BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle fullscreenProgram = BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle pointLightProgram = BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle transparencyProgram = BGFX_INVALID_HANDLE;
 
     static bgfx::FrameBufferHandle createGBuffer();
     void bindGBuffer();

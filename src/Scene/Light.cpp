@@ -12,5 +12,5 @@ float PointLight::calculateRadius() const
     glm::vec3 intensity = flux / (4.0f * glm::pi<float>());
     float maxIntensity = glm::compMax(intensity);
     float attenuation = glm::max(INTENSITY_CUTOFF, ATTENTUATION_CUTOFF * maxIntensity) / maxIntensity;
-    return 1.0f;
+    return 1.0f / sqrtf(attenuation);
 }

@@ -18,6 +18,7 @@ void main()
     float occlusion = emissiveOcclusion.w;
 
     vec3 radianceOut = vec3_splat(0.0);
+
     radianceOut += getAmbientLight().irradiance * diffuseColor * occlusion;
     radianceOut += emissive;
 

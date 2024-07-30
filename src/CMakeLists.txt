@@ -18,10 +18,18 @@ set(SOURCES
     Renderer/ForwardRenderer.cpp
     Renderer/DeferredRenderer.h
     Renderer/DeferredRenderer.cpp
-    Renderer/ClusteredRenderer.h
-    Renderer/ClusteredRenderer.cpp
-    Renderer/TiledRenderer.h
-    Renderer/TiledRenderer.cpp
+    Renderer/TiledSingleForwardRenderer.h
+    Renderer/TiledSingleForwardRenderer.cpp
+    Renderer/TiledSingleDeferredRenderer.h
+    Renderer/TiledSingleDeferredRenderer.cpp
+    Renderer/TiledMultipleForwardRenderer.h
+    Renderer/TiledMultipleForwardRenderer.cpp
+    Renderer/TiledMultipleDeferredRenderer.h
+    Renderer/TiledMultipleDeferredRenderer.cpp
+    Renderer/ClusteredForwardRenderer.h
+    Renderer/ClusteredForwardRenderer.cpp
+    Renderer/ClusteredDeferredRenderer.h
+    Renderer/ClusteredDeferredRenderer.cpp
     Renderer/PBRShader.h
     Renderer/PBRShader.cpp
     Renderer/LightShader.h
@@ -49,19 +57,24 @@ set(SHADERS
     Renderer/Shaders/varying.def.sc
     Renderer/Shaders/cs_multiple_scattering_lut.sc
 
-    Renderer/Shaders/vs_clustered.sc
-    Renderer/Shaders/fs_clustered.sc
-    Renderer/Shaders/fs_clustered_debug_vis.sc
+    Renderer/Shaders/vs_clustered_forward.sc
+    Renderer/Shaders/fs_clustered_forward.sc
+    Renderer/Shaders/fs_clustered_debug_vis_forward.sc
     Renderer/Shaders/cs_clustered_clusterbuilding.sc
     Renderer/Shaders/cs_clustered_lightculling.sc
-    Renderer/Shaders/cs_clustered_reset_counter.sc
 
-    Renderer/Shaders/vs_tiled.sc
-    Renderer/Shaders/fs_tiled.sc
-    Renderer/Shaders/fs_tiled_debug_vis.sc
-    Renderer/Shaders/cs_tiled_lightculling.sc
+    Renderer/Shaders/fs_clustered_deferred_fullscreen.sc
+    Renderer/Shaders/fs_clustered_debug_vis_deferred.sc
+
+    Renderer/Shaders/vs_tiled_forward.sc
+    Renderer/Shaders/fs_tiled_forward.sc
+    Renderer/Shaders/fs_tiled_debug_vis_forward.sc
+    Renderer/Shaders/cs_tiled_lightculling_single_thread_per_tile.sc
+    Renderer/Shaders/cs_tiled_lightculling_multiple_thread_per_tile.sc
     Renderer/Shaders/cs_tiled_tilebuilding.sc
-    Renderer/Shaders/cs_tiled_reset_counter.sc
+
+    Renderer/Shaders/fs_tiled_deferred_fullscreen.sc
+    Renderer/Shaders/fs_tiled_debug_vis_deferred.sc
 
     Renderer/Shaders/vs_deferred_geometry.sc
     Renderer/Shaders/fs_deferred_geometry.sc

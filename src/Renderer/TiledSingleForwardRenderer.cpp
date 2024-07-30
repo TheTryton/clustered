@@ -1,14 +1,15 @@
-#include "TiledRenderer.h"
+#include "TiledSingleForwardRenderer.h"
 
 #include "Scene/Scene.h"
+#include "Config.h"
 #include <bigg.hpp>
 #include <bx/string.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/ext/matrix_relational.hpp>
 
-TiledRenderer::TiledRenderer(const Scene* scene) : Renderer(scene) { }
+TiledSingleForwardRenderer::TiledSingleForwardRenderer(const Scene* scene, const Config* config) : Renderer(scene, config) { }
 
-bool TiledRenderer::supported()
+bool TiledSingleForwardRenderer::supported()
 {
     const bgfx::Caps* caps = bgfx::getCaps();
     return Renderer::supported() &&
@@ -18,7 +19,7 @@ bool TiledRenderer::supported()
            (caps->supported & BGFX_CAPS_INDEX32) != 0;
 }
 
-void TiledRenderer::onInitialize()
+void TiledSingleForwardRenderer::onInitialize()
 {
     // OpenGL backend: uniforms must be created before loading shaders
     tiles.initialize();
@@ -28,23 +29,24 @@ void TiledRenderer::onInitialize()
     bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_tiled_tilebuilding.bin");
     tileBuildingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
-    bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_tiled_reset_counter.bin");
-    resetCounterComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
-
-    bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_tiled_lightculling.bin");
+    bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_tiled_lightculling_single_thread_per_tile.bin");
     lightCullingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
-    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_tiled.bin");
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled.bin");
+    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_tiled_forward.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_forward.bin");
     lightingProgram = bigg::loadProgram(vsName, fsName);
 
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_debug_vis.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_tiled_debug_vis_forward.bin");
     debugVisProgram = bigg::loadProgram(vsName, fsName);
 }
 
-void TiledRenderer::onRender(float dt)
+void TiledSingleForwardRenderer::onRender(float dt)
 {
-    tiles.updateBuffers(width, height);
+    if(buffersNeedUpdate)
+    {
+        tiles.updateBuffers(width, height, config->maxLightsPerTileOrCluster, config->tilePixelSizeX, config->tilePixelSizeY);
+        buffersNeedUpdate = false;
+    }
 
     enum : bgfx::ViewId
     {
@@ -86,6 +88,9 @@ void TiledRenderer::onRender(float dt)
     // a bunch of costly matrix operations: https://floating-point-gui.de/errors/comparison/
     // comparing the absolute error against a rather small epsilon here works as long as the values
     // in the projection matrix aren't getting too large
+    const auto tilePixelSizes = tiles.getTilePixelSize();
+    const auto tilePixelSizeX = std::get<0>(tilePixelSizes);
+    const auto tilePixelSizeY = std::get<1>(tilePixelSizes);
     bool buildTiles = glm::any(glm::notEqual(projMat, oldProjMat, 0.00001f));
     if(buildTiles)
     {
@@ -95,27 +100,20 @@ void TiledRenderer::onRender(float dt)
 
         bgfx::dispatch(vTileBuilding,
                        tileBuildingComputeProgram,
-                       (uint32_t)std::ceil(std::ceil((float)width / TileShader::TILE_PIXEL_SIZE)),
-                       (uint32_t)std::ceil(std::ceil((float)height / TileShader::TILE_PIXEL_SIZE)),
+                       (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX) / TileShader::TILES_X_THREADS),
+                       (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY) / TileShader::TILES_Y_THREADS),
                        1);
     }
 
     // light culling
-
-    tiles.bindBuffers(false);
-
-    // reset atomic counter for light grid generation
-    // buffers created with BGFX_BUFFER_COMPUTE_WRITE can't be updated from the CPU
-    // this used to happen during tile building when it was still run every frame
-    bgfx::dispatch(vLightCulling, resetCounterComputeProgram, 1, 1, 1);
 
     lights.bindLights(scene);
     tiles.bindBuffers(false);
 
     bgfx::dispatch(vLightCulling,
                    lightCullingComputeProgram,
-                   (uint32_t)std::ceil(std::ceil((float)width / TileShader::TILE_PIXEL_SIZE)),
-                   (uint32_t)std::ceil(std::ceil((float)height / TileShader::TILE_PIXEL_SIZE)),
+                   (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX) / TileShader::TILES_X_THREADS),
+                   (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY) / TileShader::TILES_Y_THREADS),
                    1);
     // lighting
 
@@ -145,16 +143,24 @@ void TiledRenderer::onRender(float dt)
     bgfx::discard(BGFX_DISCARD_ALL);
 }
 
-void TiledRenderer::onShutdown()
+void TiledSingleForwardRenderer::onReset()
+{
+    buffersNeedUpdate = true;
+}
+
+void TiledSingleForwardRenderer::onOptionsChanged()
+{
+    buffersNeedUpdate = true;
+}
+
+void TiledSingleForwardRenderer::onShutdown()
 {
     tiles.shutdown();
 
     bgfx::destroy(tileBuildingComputeProgram);
-    bgfx::destroy(resetCounterComputeProgram);
     bgfx::destroy(lightCullingComputeProgram);
     bgfx::destroy(lightingProgram);
     bgfx::destroy(debugVisProgram);
 
-    tileBuildingComputeProgram = resetCounterComputeProgram = lightCullingComputeProgram = lightingProgram =
-        debugVisProgram = BGFX_INVALID_HANDLE;
+    tileBuildingComputeProgram = lightCullingComputeProgram = lightingProgram = debugVisProgram = BGFX_INVALID_HANDLE;
 }

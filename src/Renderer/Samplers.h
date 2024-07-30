@@ -26,10 +26,8 @@ public:
     static const uint8_t TILES_TILES = 12;
     static const uint8_t TILES_LIGHTINDICES = 13;
     static const uint8_t TILES_LIGHTGRID = 14;
-    static const uint8_t TILES_ATOMICINDEX = 15;
 
     static const uint8_t CLUSTERS_CLUSTERS = 12;
     static const uint8_t CLUSTERS_LIGHTINDICES = 13;
     static const uint8_t CLUSTERS_LIGHTGRID = 14;
-    static const uint8_t CLUSTERS_ATOMICINDEX = 15;
 };

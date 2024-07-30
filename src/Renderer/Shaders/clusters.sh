@@ -19,14 +19,13 @@
 #define CLUSTERS_Y_THREADS 8
 #define CLUSTERS_Z_THREADS 4
 
-#define MAX_LIGHTS_PER_CLUSTER 1024
-
 uniform vec4 u_clusterSizesVec; // cluster size in screen coordinates (pixels)
 uniform vec4 u_zNearFarVec;
 
-#define u_clusterSizes u_clusterSizesVec.xy
-#define u_zNear        u_zNearFarVec.x
-#define u_zFar         u_zNearFarVec.y
+#define u_maxLightsPerCluster ((uint)u_clusterSizesVec.z)
+#define u_clusterSizes        ((uvec2)u_clusterSizesVec.xy)
+#define u_zNear               u_zNearFarVec.x
+#define u_zFar                u_zNearFarVec.y
 
 #ifdef WRITE_CLUSTERS
     #define CLUSTER_BUFFER BUFFER_RW
@@ -36,16 +35,13 @@ uniform vec4 u_zNearFarVec;
 
 // light indices belonging to clusters
 CLUSTER_BUFFER(b_clusterLightIndices, uint, SAMPLER_CLUSTERS_LIGHTINDICES);
-// for each cluster: (start index in b_clusterLightIndices, number of point lights, empty, empty)
-CLUSTER_BUFFER(b_clusterLightGrid, uvec4, SAMPLER_CLUSTERS_LIGHTGRID);
+// for each cluster: number of point lights
+CLUSTER_BUFFER(b_clusterLightGrid, uint, SAMPLER_CLUSTERS_LIGHTGRID);
 
 // these are only needed for building clusters and light culling, not in the fragment shader
 #ifdef WRITE_CLUSTERS
 // list of clusters (2 vec4's each, min + max pos for AABB)
 CLUSTER_BUFFER(b_clusters, vec4, SAMPLER_CLUSTERS_CLUSTERS);
-// atomic counter for building the light grid
-// must be reset to 0 every frame
-CLUSTER_BUFFER(b_globalIndex, uint, SAMPLER_CLUSTERS_ATOMICINDEX);
 #endif
 
 struct Cluster
@@ -61,6 +57,14 @@ struct LightGrid
 };
 
 #ifdef WRITE_CLUSTERS
+uint getComputeIndex(uvec3 tileIndex2D, uvec3 clusterCount)
+{
+    uint clusterIndex = tileIndex2D.z * clusterCount.x * clusterCount.y +
+                        tileIndex2D.y * clusterCount.x +
+                        tileIndex2D.x;
+    return clusterIndex;
+}
+
 Cluster getCluster(uint index)
 {
     Cluster cluster;
@@ -70,18 +74,19 @@ Cluster getCluster(uint index)
 }
 #endif
 
-LightGrid getLightGrid(uint cluster)
+uint getLightGridCount(uint cluster)
 {
-    uvec4 gridvec = b_clusterLightGrid[cluster];
-    LightGrid grid;
-    grid.offset = gridvec.x;
-    grid.pointLights = gridvec.y;
-    return grid;
+    return b_clusterLightGrid[cluster];
 }
 
-uint getGridLightIndex(uint start, uint offset)
+uint getGridLightClusterOffset(uint cluster)
 {
-    return b_clusterLightIndices[start + offset];
+    return cluster * u_maxLightsPerCluster;
+}
+
+uint getGridLightIndex(uint clusterOffset, uint offset)
+{
+    return b_clusterLightIndices[clusterOffset + offset];
 }
 
 // cluster depth index from depth in screen coordinates (gl_FragCoord.z)

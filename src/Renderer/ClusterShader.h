@@ -14,6 +14,7 @@ public:
 
     void setUniforms(const Scene* scene, uint16_t screenWidth, uint16_t screenHeight) const;
     void bindBuffers(bool lightingPass = true) const;
+    void updateBuffers(uint32_t maxLightsPerCluster);
 
     static constexpr uint32_t CLUSTERS_X = 16;
     static constexpr uint32_t CLUSTERS_Y = 8;
@@ -46,6 +47,8 @@ private:
         static bgfx::VertexLayout layout;
     };
 
+    uint32_t currentMaxLightsPerCluster;
+
     bgfx::UniformHandle clusterSizesVecUniform = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle zNearFarVecUniform = BGFX_INVALID_HANDLE;
 
@@ -53,5 +56,4 @@ private:
     bgfx::DynamicVertexBufferHandle clustersBuffer = BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle lightIndicesBuffer = BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle lightGridBuffer = BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle atomicIndexBuffer = BGFX_INVALID_HANDLE;
 };

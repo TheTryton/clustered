@@ -16,9 +16,7 @@ NUM_THREADS(CLUSTERS_X_THREADS, CLUSTERS_Y_THREADS, CLUSTERS_Z_THREADS)
 void main()
 {
     // index calculation must match the inverse operation in the fragment shader (see getClusterIndex)
-    uint clusterIndex = gl_GlobalInvocationID.z * gl_WorkGroupSize.x * gl_WorkGroupSize.y +
-                        gl_GlobalInvocationID.y * gl_WorkGroupSize.x +
-                        gl_GlobalInvocationID.x;
+    uint clusterIndex = getComputeIndex(gl_GlobalInvocationID, gl_WorkGroupSize);
 
     // calculate min (bottom left) and max (top right) xy in screen coordinates
     vec4 minScreen = vec4( gl_GlobalInvocationID.xy               * u_clusterSizes.xy, 1.0, 1.0);

@@ -11,16 +11,15 @@
 #define TILES_X_THREADS 16
 #define TILES_Y_THREADS 16
 
-#define MAX_LIGHTS_PER_TILE 2048
-
 uniform vec4 u_tileSizeVec; // tile size in screen coordinates (pixels)
 uniform vec4 u_tileCountVec; // count of tiles
 uniform vec4 u_zNearFarVec;
 
-#define u_tileSize     ((uvec2)u_tileSizeVec.xy)
-#define u_tileCount    ((uvec2)u_tileCountVec.xy)
-#define u_zNear        u_zNearFarVec.x
-#define u_zFar         u_zNearFarVec.y
+#define u_maxLightsPerTile   ((uint)u_tileSizeVec.z)
+#define u_tileSize           ((uvec2)u_tileSizeVec.xy)
+#define u_tileCount          ((uvec2)u_tileCountVec.xy)
+#define u_zNear              u_zNearFarVec.x
+#define u_zFar               u_zNearFarVec.y
 
 #ifdef WRITE_TILES
     #define TILE_BUFFER BUFFER_RW
@@ -30,28 +29,18 @@ uniform vec4 u_zNearFarVec;
 
 // light indices belonging to tiles
 TILE_BUFFER(b_tileLightIndices, uint, SAMPLER_TILES_LIGHTINDICES);
-// for each tile: (start index in b_tileLightIndices, number of point lights, empty, empty)
-TILE_BUFFER(b_tileLightGrid, uvec4, SAMPLER_TILES_LIGHTGRID);
+// for each tile: number of point lights
+TILE_BUFFER(b_tileLightGrid, uint, SAMPLER_TILES_LIGHTGRID);
 
 // these are only needed for building tiles and light culling, not in the fragment shader
 #ifdef WRITE_TILES
-// list of tiles (2 vec4's each, min + max pos for AABB)
+// list of tiles (4 vec4's each, frustrum planes)
 TILE_BUFFER(b_tiles, vec4, SAMPLER_TILES_TILES);
-// atomic counter for building the light grid
-// must be reset to 0 every frame
-TILE_BUFFER(b_globalIndex, uint, SAMPLER_TILES_ATOMICINDEX);
 #endif
 
 struct Tile
 {
-    vec3 minBounds;
-    vec3 maxBounds;
-};
-
-struct LightGrid
-{
-    uint offset;
-    uint pointLights;
+    vec4 frustrumPlanes[4];
 };
 
 #ifdef WRITE_TILES
@@ -60,10 +49,10 @@ bool isTileValid(uint tileIndex)
     return tileIndex < u_tileCount.x * u_tileCount.y;
 }
 
-uint getComputeIndex(uvec2 globalInvocationID)
+uint getComputeIndex(uvec2 tileIndex2D)
 {
-    uint tileIndex = globalInvocationID.y * u_tileCount.x + globalInvocationID.x;
-    if(globalInvocationID.x >= u_tileCount.x || globalInvocationID.y >= u_tileCount.y)
+    uint tileIndex = tileIndex2D.y * u_tileCount.x + tileIndex2D.x;
+    if(tileIndex2D.x >= u_tileCount.x || tileIndex2D.y >= u_tileCount.y)
         return u_tileCount.x * u_tileCount.y;
     return tileIndex;
 }
@@ -73,30 +62,35 @@ Tile getTile(uint index)
     Tile tile;
     if(!isTileValid(index))
     {
-        tile.minBounds = vec3(0.0, 0.0, 0.0);
-        tile.maxBounds = vec3(0.0, 0.0, 0.0);
+        tile.frustrumPlanes[0] = vec4_splat(0.0);
+        tile.frustrumPlanes[1] = vec4_splat(0.0);
+        tile.frustrumPlanes[2] = vec4_splat(0.0);
+        tile.frustrumPlanes[3] = vec4_splat(0.0);
     }
     else
     {
-        tile.minBounds = b_tiles[2 * index + 0].xyz;
-        tile.maxBounds = b_tiles[2 * index + 1].xyz;
+        tile.frustrumPlanes[0] = b_tiles[4 * index + 0];
+        tile.frustrumPlanes[1] = b_tiles[4 * index + 1];
+        tile.frustrumPlanes[2] = b_tiles[4 * index + 2];
+        tile.frustrumPlanes[3] = b_tiles[4 * index + 3];
     }
     return tile;
 }
 #endif
 
-LightGrid getLightGrid(uint tile)
+uint getLightGridCount(uint tile)
 {
-    uvec4 gridvec = b_tileLightGrid[tile];
-    LightGrid grid;
-    grid.offset = gridvec.x;
-    grid.pointLights = gridvec.y;
-    return grid;
+    return b_tileLightGrid[tile];
 }
 
-uint getGridLightIndex(uint start, uint offset)
+uint getGridLightTileOffset(uint tile)
 {
-    return b_tileLightIndices[start + offset];
+    return tile * u_maxLightsPerTile;
+}
+
+uint getGridLightIndex(uint tileOffset, uint offset)
+{
+    return b_tileLightIndices[tileOffset + offset];
 }
 
 // tile index from fragment position in window coordinates (gl_FragCoord)

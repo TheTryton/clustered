@@ -8,15 +8,17 @@
 #include <string>
 
 class Scene;
+class Config;
 
 class Renderer
 {
 public:
-    Renderer(const Scene* scene);
+    Renderer(const Scene* scene, const Config* config);
     virtual ~Renderer() { }
 
     void initialize();
     void reset(uint16_t width, uint16_t height);
+    void optionsChanged();
     void render(float dt);
     void shutdown();
 
@@ -47,6 +49,7 @@ public:
     virtual void onInitialize() { }
     // window resize/flags changed (MSAA, V-Sync, ...)
     virtual void onReset() { }
+    virtual void onOptionsChanged() { }
     virtual void onRender(float dt) = 0;
     virtual void onShutdown() { }
 
@@ -94,6 +97,7 @@ protected:
     TonemappingMode tonemappingMode = TonemappingMode::NONE;
 
     const Scene* scene = nullptr;
+    const Config* config = nullptr;
 
     uint16_t width = 0;
     uint16_t height = 0;

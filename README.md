@@ -1,6 +1,6 @@
 # Cluster
 
-Implementation of [Clustered Shading](https://efficientshading.com/wp-content/uploads/clustered_shading_preprint.pdf) and Physically Based Rendering with the [bgfx](https://bkaradzic.github.io/bgfx/overview.html) rendering library.
+Implementation of [ClusteredForward Shading](https://efficientshading.com/wp-content/uploads/clustered_shading_preprint.pdf) and Physically Based Rendering with the [bgfx](https://bkaradzic.github.io/bgfx/overview.html) rendering library.
 
 ![Render result](images/sponza.jpg)
 
@@ -15,7 +15,7 @@ Currently bgfx's OpenGL, DirectX 11/12 and Vulkan backends are supported. I've o
 - forward, deferred and clustered shading
 - output should be near-identical (as long as you don't hit the maximum light count per cluster)
 
-### Clustered Forward Shading
+### ClusteredForward Forward Shading
 
 - [logarithmical depth partition](http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf)
 - compute shader for cluster generation
@@ -68,9 +68,9 @@ HDR tonemapping postprocessing with different operators:
 
 A few useful resources that helped with the implementation:
 
-- Clustered Shading:
-    - [A Primer On Efficient Rendering Algorithms & Clustered Shading](http://www.aortiz.me/2018/12/21/CG.html) by Angel Ortiz
-    - [Practical Clustered Shading](https://newq.net/dl/pub/s2015_practical.pdf) by Emil Persson
+- ClusteredForward Shading:
+    - [A Primer On Efficient Rendering Algorithms & ClusteredForward Shading](http://www.aortiz.me/2018/12/21/CG.html) by Angel Ortiz
+    - [Practical ClusteredForward Shading](https://newq.net/dl/pub/s2015_practical.pdf) by Emil Persson
     - [The devil is in the details: idTech 666](http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf) by Tiago Sousa und Jean Geffroy
 - Physically Based Rendering:
     - [Physically Based Rendering in Filament](https://google.github.io/filament/Filament.md.html) by Romain Guy and Mathias Agopian

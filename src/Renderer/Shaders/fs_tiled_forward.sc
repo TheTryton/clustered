@@ -3,19 +3,18 @@ $input v_worldpos, v_normal, v_tangent, v_texcoord0
 #define READ_MATERIAL
 
 #include <bgfx_shader.sh>
-#include <bgfx_compute.sh>
 #include "util.sh"
 #include "pbr.sh"
 #include "lights.sh"
-#include "clusters.sh"
+#include "tiles.sh"
 #include "colormap.sh"
 
 uniform vec4 u_camPos;
 
 void main()
 {
-    // the clustered shading fragment shader is almost identical to forward shading
-    // first we determine the cluster id from the fragment's window coordinates
+    // the tiled shading fragment shader is almost identical to forward shading
+    // first we determine the tile id from the fragment's window coordinates
     // light count is read from the grid instead of a uniform
     // light indices are read and looped over starting from the grid offset
 
@@ -42,11 +41,12 @@ void main()
 
     vec3 radianceOut = vec3_splat(0.0);
 
-    uint cluster = getClusterIndex(gl_FragCoord);
-    LightGrid grid = getLightGrid(cluster);
-    for(uint i = 0; i < grid.pointLights; i++)
+    uint tile = getTileIndex(gl_FragCoord);
+    uint tileOffset = getGridLightTileOffset(tile);
+    uint lightCount = getLightGridCount(tile);
+    for(uint i = 0; i < lightCount; i++)
     {
-        uint lightIndex = getGridLightIndex(grid.offset, i);
+        uint lightIndex = getGridLightIndex(tileOffset, i);
         PointLight light = getPointLight(lightIndex);
         float dist = distance(light.position, fragPos);
         float attenuation = smoothAttenuation(dist, light.radius);

@@ -1,14 +1,15 @@
-#include "ClusteredRenderer.h"
+#include "ClusteredForwardRenderer.h"
 
 #include "Scene/Scene.h"
+#include "Config.h"
 #include <bigg.hpp>
 #include <bx/string.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/ext/matrix_relational.hpp>
 
-ClusteredRenderer::ClusteredRenderer(const Scene* scene) : Renderer(scene) { }
+ClusteredForwardRenderer::ClusteredForwardRenderer(const Scene* scene, const Config* config) : Renderer(scene, config) { }
 
-bool ClusteredRenderer::supported()
+bool ClusteredForwardRenderer::supported()
 {
     const bgfx::Caps* caps = bgfx::getCaps();
     return Renderer::supported() &&
@@ -18,7 +19,7 @@ bool ClusteredRenderer::supported()
            (caps->supported & BGFX_CAPS_INDEX32) != 0;
 }
 
-void ClusteredRenderer::onInitialize()
+void ClusteredForwardRenderer::onInitialize()
 {
     // OpenGL backend: uniforms must be created before loading shaders
     clusters.initialize();
@@ -28,22 +29,25 @@ void ClusteredRenderer::onInitialize()
     bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_clustered_clusterbuilding.bin");
     clusterBuildingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
-    bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_clustered_reset_counter.bin");
-    resetCounterComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
-
     bx::snprintf(csName, BX_COUNTOF(csName), "%s%s", shaderDir(), "cs_clustered_lightculling.bin");
     lightCullingComputeProgram = bgfx::createProgram(bigg::loadShader(csName), true);
 
-    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_clustered.bin");
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered.bin");
+    bx::snprintf(vsName, BX_COUNTOF(vsName), "%s%s", shaderDir(), "vs_clustered_forward.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered_forward.bin");
     lightingProgram = bigg::loadProgram(vsName, fsName);
 
-    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered_debug_vis.bin");
+    bx::snprintf(fsName, BX_COUNTOF(fsName), "%s%s", shaderDir(), "fs_clustered_debug_vis_forward.bin");
     debugVisProgram = bigg::loadProgram(vsName, fsName);
 }
 
-void ClusteredRenderer::onRender(float dt)
+void ClusteredForwardRenderer::onRender(float dt)
 {
+    if(buffersNeedUpdate)
+    {
+        clusters.updateBuffers(config->maxLightsPerTileOrCluster);
+        buffersNeedUpdate = false;
+    }
+
     enum : bgfx::ViewId
     {
         vClusterBuilding = 0,
@@ -100,13 +104,6 @@ void ClusteredRenderer::onRender(float dt)
 
     // light culling
 
-    clusters.bindBuffers(false);
-
-    // reset atomic counter for light grid generation
-    // buffers created with BGFX_BUFFER_COMPUTE_WRITE can't be updated from the CPU
-    // this used to happen during cluster building when it was still run every frame
-    bgfx::dispatch(vLightCulling, resetCounterComputeProgram, 1, 1, 1);
-
     lights.bindLights(scene);
     clusters.bindBuffers(false);
 
@@ -143,16 +140,19 @@ void ClusteredRenderer::onRender(float dt)
     bgfx::discard(BGFX_DISCARD_ALL);
 }
 
-void ClusteredRenderer::onShutdown()
+void ClusteredForwardRenderer::onOptionsChanged()
+{
+    buffersNeedUpdate = true;
+}
+
+void ClusteredForwardRenderer::onShutdown()
 {
     clusters.shutdown();
 
     bgfx::destroy(clusterBuildingComputeProgram);
-    bgfx::destroy(resetCounterComputeProgram);
     bgfx::destroy(lightCullingComputeProgram);
     bgfx::destroy(lightingProgram);
     bgfx::destroy(debugVisProgram);
 
-    clusterBuildingComputeProgram = resetCounterComputeProgram = lightCullingComputeProgram = lightingProgram =
-        debugVisProgram = BGFX_INVALID_HANDLE;
+    clusterBuildingComputeProgram = lightCullingComputeProgram = lightingProgram = debugVisProgram = BGFX_INVALID_HANDLE;
 }

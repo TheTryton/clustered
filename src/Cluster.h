@@ -41,8 +41,12 @@ public:
     {
         Forward,
         Deferred,
-        Tiled,
-        Clustered
+        TiledSingleForward,
+        TiledSingleDeferred,
+        TiledMultipleForward,
+        TiledMultipleDeferred,
+        ClusteredForward,
+        ClusteredDeferred
     };
     void setRenderPath(RenderPath path);
 

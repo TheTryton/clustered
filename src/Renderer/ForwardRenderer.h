@@ -5,7 +5,7 @@
 class ForwardRenderer : public Renderer
 {
 public:
-    ForwardRenderer(const Scene* scene);
+    ForwardRenderer(const Scene* scene, const Config* config);
 
     static bool supported();
 
