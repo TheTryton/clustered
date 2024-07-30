@@ -19,7 +19,7 @@
 #define CLUSTERS_Y_THREADS 8
 #define CLUSTERS_Z_THREADS 4
 
-#define MAX_LIGHTS_PER_CLUSTER 100
+#define MAX_LIGHTS_PER_CLUSTER 1024
 
 uniform vec4 u_clusterSizesVec; // cluster size in screen coordinates (pixels)
 uniform vec4 u_zNearFarVec;

@@ -6,6 +6,7 @@
 #include "Log/Log.h"
 #include "Renderer/ForwardRenderer.h"
 #include "Renderer/DeferredRenderer.h"
+#include "Renderer/TiledRenderer.h"
 #include "Renderer/ClusteredRenderer.h"
 #include <bx/file.h>
 #include <bx/string.h>
@@ -62,7 +63,13 @@ void Cluster::initialize(int _argc, char* _argv[])
     }
     if(!DeferredRenderer::supported())
     {
-        Log->error("Deferred renderer not supported on this hardware");
+        Log->error("Deferred multiple pass renderer not supported on this hardware");
+        close();
+        return;
+    }
+    if(!TiledRenderer::supported())
+    {
+        Log->error("Tiled renderer not supported on this hardware");
         close();
         return;
     }
@@ -287,6 +294,9 @@ void Cluster::setRenderPath(RenderPath path)
             break;
         case RenderPath::Deferred:
             renderer = std::make_unique<DeferredRenderer>(scene.get());
+            break;
+        case RenderPath::Tiled:
+            renderer = std::make_unique<TiledRenderer>(scene.get());
             break;
         case RenderPath::Clustered:
             renderer = std::make_unique<ClusteredRenderer>(scene.get());

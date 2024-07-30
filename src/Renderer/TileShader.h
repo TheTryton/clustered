@@ -4,33 +4,29 @@
 
 class Scene;
 
-class ClusterShader
+class TileShader
 {
 public:
-    ClusterShader();
+    TileShader();
 
     void initialize();
     void shutdown();
 
     void setUniforms(const Scene* scene, uint16_t screenWidth, uint16_t screenHeight) const;
     void bindBuffers(bool lightingPass = true) const;
+    void updateBuffers(uint16_t screenWidth, uint16_t screenHeight);
 
-    static constexpr uint32_t CLUSTERS_X = 16;
-    static constexpr uint32_t CLUSTERS_Y = 8;
-    static constexpr uint32_t CLUSTERS_Z = 24;
+    static constexpr uint32_t TILE_PIXEL_SIZE = 16;
 
     // limit number of threads (D3D only allows up to 1024, there might also be shared memory limitations)
     // shader will be run by 6 work groups
-    static constexpr uint32_t CLUSTERS_X_THREADS = 16;
-    static constexpr uint32_t CLUSTERS_Y_THREADS = 8;
-    static constexpr uint32_t CLUSTERS_Z_THREADS = 4;
+    static constexpr uint32_t TILES_X_THREADS = 16;
+    static constexpr uint32_t TILES_Y_THREADS = 16;
 
-    static constexpr uint32_t CLUSTER_COUNT = CLUSTERS_X * CLUSTERS_Y * CLUSTERS_Z;
-
-    static constexpr uint32_t MAX_LIGHTS_PER_CLUSTER = 2048;
+    static constexpr uint32_t MAX_LIGHTS_PER_TILE = 2048;
 
 private:
-    struct ClusterVertex
+    struct TileVertex
     {
         // w is padding
         float minBounds[4];
@@ -46,11 +42,15 @@ private:
         static bgfx::VertexLayout layout;
     };
 
-    bgfx::UniformHandle clusterSizesVecUniform = BGFX_INVALID_HANDLE;
+    uint16_t currentWidth;
+    uint16_t currentHeight;
+
+    bgfx::UniformHandle tileSizeVecUniform = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle tileCountVecUniform = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle zNearFarVecUniform = BGFX_INVALID_HANDLE;
 
     // dynamic buffers can be created empty
-    bgfx::DynamicVertexBufferHandle clustersBuffer = BGFX_INVALID_HANDLE;
+    bgfx::DynamicVertexBufferHandle tilesBuffer = BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle lightIndicesBuffer = BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle lightGridBuffer = BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle atomicIndexBuffer = BGFX_INVALID_HANDLE;

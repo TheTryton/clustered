@@ -217,42 +217,36 @@ void DeferredRenderer::onRender(float dt)
 
     // point lights
 
-    // render lights to framebuffer
-    // cull with light geometry
-    //   - axis-aligned bounding box (TODO? sphere for point lights)
-    //   - read depth from geometry pass
-    //   - reverse depth test
-    //   - render backfaces
-    //   - this shades all pixels between camera and backfaces
-    // accumulate light contributions (blend mode add)
-    // TODO? tiled-deferred is probably faster for small lights
-    // https://software.intel.com/sites/default/files/m/d/4/1/d/8/lauritzen_deferred_shading_siggraph_2010.pdf
-
     bgfx::setVertexBuffer(0, pointLightVertexBuffer);
     bgfx::setIndexBuffer(pointLightIndexBuffer);
 
-    for(size_t i = 0; i < scene->pointLights.lights.size(); i++)
+    const uint16_t instanceStride = 64 + 16; // 64 bytes for mat4x4 and 16 for vec4 (lightIndex)
+    // use instancing
+    bgfx::InstanceDataBuffer idb{};
+    const size_t lightsCount = scene->pointLights.lights.size();
+    const size_t drawnLights = bgfx::getAvailInstanceDataBuffer(lightsCount, instanceStride);
+    bgfx::allocInstanceDataBuffer(&idb, drawnLights, instanceStride);
+    uint8_t* instanceData = idb.data;
+    for(size_t i = 0; i < drawnLights; i++)
     {
-        // position light geometry (bounding box)
-        // TODO if the light extends past the far plane, it won't get rendered
-        // - clip light extents to not extend past far plane
-        // - use screen aligned quads (how to test depth?)
-        // - tiled-deferred
         const PointLight& light = scene->pointLights.lights[i];
         float radius = light.calculateRadius();
         glm::mat4 scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3(radius));
         glm::mat4 translate = glm::translate(glm::identity<glm::mat4>(), light.position);
         glm::mat4 model = translate * scale;
-        bgfx::setTransform(glm::value_ptr(model));
         float lightIndexVec[4] = { (float)i };
-        bgfx::setUniform(lightIndexVecUniform, lightIndexVec);
-        bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GEQUAL | BGFX_STATE_CULL_CCW |
-                       BGFX_STATE_BLEND_ADD);
-        bgfx::submit(vLight,
-                     pointLightProgram,
-                     0,
-                     ~(BGFX_DISCARD_VERTEX_STREAMS | BGFX_DISCARD_INDEX_BUFFER | BGFX_DISCARD_BINDINGS));
+        std::memcpy(instanceData + instanceStride * i, glm::value_ptr(model), 64);
+        std::memcpy(instanceData + instanceStride * i + 64, lightIndexVec, 16);
     }
+
+    bgfx::setInstanceDataBuffer(&idb);
+
+    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GEQUAL | BGFX_STATE_CULL_CCW |
+                   BGFX_STATE_BLEND_ADD);
+    bgfx::submit(vLight,
+                 pointLightProgram,
+                 0,
+                 ~(BGFX_DISCARD_VERTEX_STREAMS | BGFX_DISCARD_INDEX_BUFFER | BGFX_DISCARD_BINDINGS));
 
     // transparent
 

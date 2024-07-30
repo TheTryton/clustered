@@ -20,12 +20,16 @@ set(SOURCES
     Renderer/DeferredRenderer.cpp
     Renderer/ClusteredRenderer.h
     Renderer/ClusteredRenderer.cpp
+    Renderer/TiledRenderer.h
+    Renderer/TiledRenderer.cpp
     Renderer/PBRShader.h
     Renderer/PBRShader.cpp
     Renderer/LightShader.h
     Renderer/LightShader.cpp
     Renderer/ClusterShader.h
     Renderer/ClusterShader.cpp
+    Renderer/TileShader.h
+    Renderer/TileShader.cpp
     Renderer/Samplers.h
 
     Scene/Scene.h
@@ -44,18 +48,28 @@ set(SOURCES
 set(SHADERS
     Renderer/Shaders/varying.def.sc
     Renderer/Shaders/cs_multiple_scattering_lut.sc
+
     Renderer/Shaders/vs_clustered.sc
     Renderer/Shaders/fs_clustered.sc
     Renderer/Shaders/fs_clustered_debug_vis.sc
     Renderer/Shaders/cs_clustered_clusterbuilding.sc
-    Renderer/Shaders/cs_clustered_reset_counter.sc
     Renderer/Shaders/cs_clustered_lightculling.sc
+    Renderer/Shaders/cs_clustered_reset_counter.sc
+
+    Renderer/Shaders/vs_tiled.sc
+    Renderer/Shaders/fs_tiled.sc
+    Renderer/Shaders/fs_tiled_debug_vis.sc
+    Renderer/Shaders/cs_tiled_lightculling.sc
+    Renderer/Shaders/cs_tiled_tilebuilding.sc
+    Renderer/Shaders/cs_tiled_reset_counter.sc
+
     Renderer/Shaders/vs_deferred_geometry.sc
     Renderer/Shaders/fs_deferred_geometry.sc
     Renderer/Shaders/vs_deferred_light.sc
     Renderer/Shaders/fs_deferred_pointlight.sc
     Renderer/Shaders/vs_deferred_fullscreen.sc
     Renderer/Shaders/fs_deferred_fullscreen.sc
+
     Renderer/Shaders/vs_forward.sc
     Renderer/Shaders/fs_forward.sc
     Renderer/Shaders/vs_tonemap.sc
@@ -65,6 +79,7 @@ set(SHADERS
     Renderer/Shaders/pbr.sh
     Renderer/Shaders/lights.sh
     Renderer/Shaders/clusters.sh
+    Renderer/Shaders/tiles.sh
     Renderer/Shaders/colormap.sh
     Renderer/Shaders/util.sh
 )
@@ -110,6 +125,7 @@ set(ASSETS_DIR "${PROJECT_BINARY_DIR}/assets")
 # sometimes handy after changing included header files (.sh)
 # since add_shader doesn't take those dependencies into account
 add_custom_target(invalidate_shaders)
+add_dependencies(Cluster invalidate_shaders)
 
 foreach(SHADER ${SHADERS})
     get_filename_component(SHADER_NAME "${SHADER}" NAME)

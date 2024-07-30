@@ -1,3 +1,5 @@
+$input v_lightIndex
+
 #include <bgfx_shader.sh>
 #include "samplers.sh"
 #include "pbr.sh"
@@ -10,8 +12,7 @@ SAMPLER2D(s_texNormal,            SAMPLER_DEFERRED_NORMAL);
 SAMPLER2D(s_texF0Metallic,        SAMPLER_DEFERRED_F0_METALLIC);
 SAMPLER2D(s_texDepth,             SAMPLER_DEFERRED_DEPTH);
 
-uniform vec4 u_lightIndexVec;
-#define u_lightIndex uint(u_lightIndexVec.x)
+#define lightIndex uint(v_lightIndex.x)
 
 void main()
 {
@@ -38,7 +39,7 @@ void main()
 
     vec3 radianceOut = vec3_splat(0.0);
 
-    PointLight light = getPointLight(u_lightIndex);
+    PointLight light = getPointLight(lightIndex);
     light.position = mul(u_view, vec4(light.position, 1.0)).xyz;
     
     float dist = distance(light.position, fragPos);
