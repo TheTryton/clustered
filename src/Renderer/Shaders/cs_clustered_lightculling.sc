@@ -8,7 +8,34 @@
 // builds a light grid that holds indices of lights for each cluster
 // largely inspired by http://www.aortiz.me/2018/12/21/CG.html
 
-bool pointLightIntersectsCluster(PointLight light, Cluster cluster)
+float getSignedDistanceFromPlane(vec3 p, vec4 eqn)
+{
+    return dot(eqn.xyz, p);
+}
+
+bool pointLightIntersectsCluster(PointLight light, Cluster cluster, float halfZ)
+{
+    vec3 center = light.position;
+    float r = light.radius;
+    float near = cluster.depthNearFar.x;
+    float far = cluster.depthNearFar.y;
+    if(
+        (getSignedDistanceFromPlane(center, cluster.frustrumPlanes[0]) < r) &&
+        (getSignedDistanceFromPlane(center, cluster.frustrumPlanes[1]) < r) &&
+        (getSignedDistanceFromPlane(center, cluster.frustrumPlanes[2]) < r) &&
+        (getSignedDistanceFromPlane(center, cluster.frustrumPlanes[3]) < r)
+    )
+    {
+        if(-center.z + near < r && center.z - halfZ < r)
+            return true;
+        if(-center.z + halfZ < r && center.z - far < r)
+            return true;
+    }
+
+    return false;
+}
+
+/*bool pointLightIntersectsCluster(PointLight light, Cluster cluster)
 {
     // NOTE: expects light.position to be in view space like the cluster bounds
     // global light list has world space coordinates, but we transform the
@@ -19,9 +46,9 @@ bool pointLightIntersectsCluster(PointLight light, Cluster cluster)
     // check if point is inside the sphere
     vec3 dist = closest - light.position;
     return dot(dist, dist) <= (light.radius * light.radius);
-}
+}*/
 
-#define gl_WorkGroupSize uvec3(CLUSTERS_X_THREADS, CLUSTERS_Y_THREADS, CLUSTERS_Z_THREADS)
+//#define gl_WorkGroupSize uvec3(CLUSTERS_X_THREADS, CLUSTERS_Y_THREADS, CLUSTERS_Z_THREADS)
 #define GROUP_SIZE (CLUSTERS_X_THREADS * CLUSTERS_Y_THREADS * CLUSTERS_Z_THREADS)
 
 // light cache for the current workgroup
@@ -40,9 +67,11 @@ void main()
     uint visibleCount = 0;
 
     // the way we calculate the index doesn't really matter here since we write to the same index in the light grid as we read from the cluster buffer
-    uint clusterIndex = getComputeIndex(gl_GlobalInvocationID, gl_WorkGroupSize);
+    uint clusterIndex = getComputeIndex(gl_GlobalInvocationID);
     uint clusterOffset = getGridLightClusterOffset(clusterIndex);
     Cluster cluster = getCluster(clusterIndex);
+
+    float halfZ = (cluster.depthNearFar.x + cluster.depthNearFar.y) / 2;
 
     // we have a cache of GROUP_SIZE lights
     // have to run this loop several times if we have more than GROUP_SIZE lights
@@ -72,9 +101,9 @@ void main()
         barrier();
 
         // each thread is one cluster and checks against all lights in the cache
-        for(uint i = 0; i < batchSize; i++)
+        for(uint i = 0; i < batchSize && isClusterValid(clusterIndex); i++)
         {
-            if(pointLightIntersectsCluster(lights[i], cluster))
+            if(pointLightIntersectsCluster(lights[i], cluster, halfZ))
             {
                 b_clusterLightIndices[clusterOffset + visibleCount] = lightOffset + i;
                 visibleCount++;
@@ -90,6 +119,9 @@ void main()
     // wait for all threads to finish checking lights
     barrier();
 
-    // write light grid for this cluster
-    b_clusterLightGrid[clusterIndex] = visibleCount;
+    if(isClusterValid(clusterIndex))
+    {
+        // write light grid for this cluster
+        b_clusterLightGrid[clusterIndex] = visibleCount;
+    }
 }

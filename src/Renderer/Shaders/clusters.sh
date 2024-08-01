@@ -8,9 +8,9 @@
 // taken from Doom
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
-#define CLUSTERS_X 16
-#define CLUSTERS_Y 8
-#define CLUSTERS_Z 24
+//#define CLUSTERS_X 16
+//#define CLUSTERS_Y 8
+//#define CLUSTERS_Z 48
 
 // workgroup size of the culling compute shader
 // D3D compute shaders only allow up to 1024 threads per workgroup
@@ -19,11 +19,13 @@
 #define CLUSTERS_Y_THREADS 8
 #define CLUSTERS_Z_THREADS 4
 
-uniform vec4 u_clusterSizesVec; // cluster size in screen coordinates (pixels)
+uniform vec4 u_clusterCountVec; // clusters count
+uniform vec4 u_clusterSizeVec; // cluster size in screen coordinates (pixels)
 uniform vec4 u_zNearFarVec;
 
-#define u_maxLightsPerCluster ((uint)u_clusterSizesVec.z)
-#define u_clusterSizes        ((uvec2)u_clusterSizesVec.xy)
+#define u_maxLightsPerCluster ((uint)u_clusterSizeVec.z)
+#define u_clusterCount        ((uvec3)u_clusterCountVec.xyz)
+#define u_clusterSize         ((uvec2)u_clusterSizeVec.xy)
 #define u_zNear               u_zNearFarVec.x
 #define u_zFar                u_zNearFarVec.y
 
@@ -40,14 +42,16 @@ CLUSTER_BUFFER(b_clusterLightGrid, uint, SAMPLER_CLUSTERS_LIGHTGRID);
 
 // these are only needed for building clusters and light culling, not in the fragment shader
 #ifdef WRITE_CLUSTERS
-// list of clusters (2 vec4's each, min + max pos for AABB)
+// list of clusters (5 vec4's each, frustrum planes and depthNearFar)
 CLUSTER_BUFFER(b_clusters, vec4, SAMPLER_CLUSTERS_CLUSTERS);
 #endif
 
 struct Cluster
 {
-    vec3 minBounds;
-    vec3 maxBounds;
+    vec4 frustrumPlanes[4];
+    vec4 depthNearFar;
+    //vec3 minBounds;
+    //vec3 maxBounds;
 };
 
 struct LightGrid
@@ -57,19 +61,42 @@ struct LightGrid
 };
 
 #ifdef WRITE_CLUSTERS
-uint getComputeIndex(uvec3 tileIndex2D, uvec3 clusterCount)
+bool isClusterValid(uint clusterIndex)
 {
-    uint clusterIndex = tileIndex2D.z * clusterCount.x * clusterCount.y +
-                        tileIndex2D.y * clusterCount.x +
-                        tileIndex2D.x;
+    return clusterIndex < u_clusterCount.x * u_clusterCount.y * u_clusterCount.z;
+}
+
+uint getComputeIndex(uvec3 clusterIndex3D)
+{
+    uint clusterIndex = clusterIndex3D.z * u_clusterCount.x * u_clusterCount.y +
+                        clusterIndex3D.y * u_clusterCount.x +
+                        clusterIndex3D.x;
+    if(clusterIndex3D.x >= u_clusterCount.x || clusterIndex3D.y >= u_clusterCount.y || clusterIndex3D.z >= u_clusterCount.z)
+        return u_clusterCount.x * u_clusterCount.y * u_clusterCount.z;
     return clusterIndex;
 }
 
 Cluster getCluster(uint index)
 {
     Cluster cluster;
-    cluster.minBounds = b_clusters[2 * index + 0].xyz;
-    cluster.maxBounds = b_clusters[2 * index + 1].xyz;
+    if(!isClusterValid(index))
+    {
+        cluster.frustrumPlanes[0] = vec4_splat(0.0);
+        cluster.frustrumPlanes[1] = vec4_splat(0.0);
+        cluster.frustrumPlanes[2] = vec4_splat(0.0);
+        cluster.frustrumPlanes[3] = vec4_splat(0.0);
+        cluster.depthNearFar = vec4_splat(0.0);
+    }
+    else
+    {
+        cluster.frustrumPlanes[0] = b_clusters[5 * index + 0];
+        cluster.frustrumPlanes[1] = b_clusters[5 * index + 1];
+        cluster.frustrumPlanes[2] = b_clusters[5 * index + 2];
+        cluster.frustrumPlanes[3] = b_clusters[5 * index + 3];
+        cluster.depthNearFar = b_clusters[5 * index + 4];
+    }
+    //cluster.minBounds = b_clusters[2 * index + 0].xyz;
+    //cluster.maxBounds = b_clusters[2 * index + 1].xyz;
     return cluster;
 }
 #endif
@@ -94,8 +121,8 @@ uint getClusterZIndex(float screenDepth)
 {
     // this can be calculated on the CPU and passed as a uniform
     // only leaving it here to keep most of the relevant code in the shaders for learning purposes
-    float scale = float(CLUSTERS_Z) / log(u_zFar / u_zNear);
-    float bias = -(float(CLUSTERS_Z) * log(u_zNear) / log(u_zFar / u_zNear));
+    float scale = float(u_clusterCount.z) / log(u_zFar / u_zNear);
+    float bias = -(float(u_clusterCount.z) * log(u_zNear) / log(u_zFar / u_zNear));
 
     float eyeDepth = screen2EyeDepth(screenDepth, u_zNear, u_zFar);
     uint zIndex = uint(max(log(eyeDepth) * scale + bias, 0.0));
@@ -106,9 +133,9 @@ uint getClusterZIndex(float screenDepth)
 uint getClusterIndex(vec4 fragCoord)
 {
     uint zIndex = getClusterZIndex(fragCoord.z);
-    uvec3 indices = uvec3(uvec2(fragCoord.xy / u_clusterSizes.xy), zIndex);
-    uint cluster = (CLUSTERS_X * CLUSTERS_Y) * indices.z +
-                   CLUSTERS_X * indices.y +
+    uvec3 indices = uvec3(uvec2(fragCoord.xy / u_clusterSize.xy), zIndex);
+    uint cluster = u_clusterCount.x * u_clusterCount.y * indices.z +
+                   u_clusterCount.x * indices.y +
                    indices.x;
     return cluster;
 }

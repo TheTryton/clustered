@@ -40,11 +40,11 @@ private:
         static bgfx::VertexLayout layout;
     };
 
-    uint16_t currentWidth;
-    uint16_t currentHeight;
-    uint32_t currentMaxLightsPerTile;
-    uint32_t currentTilePixelSizeX;
-    uint32_t currentTilePixelSizeY;
+    uint16_t currentWidth{};
+    uint16_t currentHeight{};
+    uint32_t currentMaxLightsPerTile{};
+    uint32_t currentTilePixelSizeX{};
+    uint32_t currentTilePixelSizeY{};
 
     bgfx::UniformHandle tileSizeVecUniform = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle tileCountVecUniform = BGFX_INVALID_HANDLE;

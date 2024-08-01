@@ -6,7 +6,7 @@
 Config::Config() :
     writeLog(true),
     logFile("Cluster.log"),
-    renderer(bgfx::RendererType::Direct3D11), // default renderer, chosen by platform
+    renderer(bgfx::RendererType::Direct3D12), // default renderer, chosen by platform
     renderPath(Cluster::RenderPath::ClusteredForward),
     tonemappingMode(Renderer::TonemappingMode::ACES),
     multipleScattering(true),
@@ -19,7 +19,10 @@ Config::Config() :
     maxLights(65536),
     tilePixelSizeX(16),
     tilePixelSizeY(16),
-    maxLightsPerTileOrCluster(8192),
+    clustersX(16),
+    clustersY(8),
+    clustersZ(24),
+    maxLightsPerTileOrCluster(4096),
     movingLights(false),
     fullscreen(false),
     showUI(true),

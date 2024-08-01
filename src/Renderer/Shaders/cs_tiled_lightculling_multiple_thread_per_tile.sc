@@ -51,7 +51,12 @@ void main()
     barrier();
 
     uint lightCount = pointLightCount();
-    for(int lightIndex = gl_LocalInvocationIndex; lightIndex < lightCount; lightIndex += NUM_THREADS_PER_TILE)
+    uint lightCountPerThread = (lightCount + NUM_THREADS_PER_TILE - 1) / NUM_THREADS_PER_TILE;
+    uint threadLightStart = lightCountPerThread * (gl_LocalInvocationIndex + 0);
+    uint threadLightEnd = lightCountPerThread * (gl_LocalInvocationIndex + 1);
+    threadLightEnd = min(threadLightEnd, lightCount);
+    //for(int lightIndex = gl_LocalInvocationIndex; lightIndex < lightCount; lightIndex += NUM_THREADS_PER_TILE)
+    for(uint lightIndex = threadLightStart; lightIndex < threadLightEnd; ++lightIndex)
     {
         PointLight light = getPointLight(lightIndex);
         light.position = mul(u_view, vec4(light.position, 1.0)).xyz;
@@ -71,6 +76,6 @@ void main()
 
     if(gl_LocalInvocationIndex == 0)
     {
-        b_tileLightGrid[tileIndex] = sharedVisibleCount;
+        b_tileLightGrid[tileIndex] = min(sharedVisibleCount, u_maxLightsPerTile);
     }
 }

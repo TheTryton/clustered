@@ -178,10 +178,10 @@ void ClusterUI::update(float dt)
            path == Cluster::RenderPath::ClusteredDeferred
         )
         {
-            ImGui::Checkbox("Cluster light count visualization", &app.config->debugVisualization);
-            app.renderer->setVariable("DEBUG_VIS", app.config->debugVisualization ? "true" : "false");
-
             bool isClustered = (path == Cluster::RenderPath::ClusteredForward || path == Cluster::RenderPath::ClusteredDeferred);
+
+            ImGui::Checkbox(isClustered ? "Cluster light count visualization" : "Tile light count visualization", &app.config->debugVisualization);
+            app.renderer->setVariable("DEBUG_VIS", app.config->debugVisualization ? "true" : "false");
 
             ImGui::SliderInt(isClustered ? "Max lights per cluster" : "Max lights per tile", &app.config->maxLightsPerTileOrCluster, 4, 8192);
             ImGui::InputInt(isClustered ? "Max lights per cluster (input)" : "Max lights per tile (input)", &app.config->maxLightsPerTileOrCluster, 0, 0);
@@ -199,6 +199,24 @@ void ClusterUI::update(float dt)
 
                 app.config->tilePixelSizeX = std::max(4, std::min(app.config->tilePixelSizeX, 128));
                 app.config->tilePixelSizeY = std::max(4, std::min(app.config->tilePixelSizeY, 128));
+            }
+            else
+            {
+                ImGui::SliderInt("Clusters [X]", &app.config->clustersX, 4, 128);
+                ImGui::SameLine();
+                ImGui::SliderInt("Clusters [Y]", &app.config->clustersY, 4, 128);
+                ImGui::SameLine();
+                ImGui::SliderInt("Clusters [Z]", &app.config->clustersZ, 4, 128);
+
+                ImGui::InputInt("Clusters [X] (input)", &app.config->clustersX, 0, 0);
+                ImGui::SameLine();
+                ImGui::InputInt("Clusters [Y] (input)", &app.config->clustersY, 0, 0);
+                ImGui::SameLine();
+                ImGui::InputInt("Clusters [Z] (input)", &app.config->clustersZ, 0, 0);
+
+                app.config->clustersX = std::max(4, std::min(app.config->clustersX, 128));
+                app.config->clustersY = std::max(4, std::min(app.config->clustersY, 128));
+                app.config->clustersZ = std::max(4, std::min(app.config->clustersZ, 128));
             }
 
             app.renderer->optionsChanged();

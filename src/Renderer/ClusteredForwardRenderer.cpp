@@ -44,7 +44,7 @@ void ClusteredForwardRenderer::onRender(float dt)
 {
     if(buffersNeedUpdate)
     {
-        clusters.updateBuffers(config->maxLightsPerTileOrCluster);
+        clusters.updateBuffers(config->maxLightsPerTileOrCluster, config->clustersX, config->clustersY, config->clustersZ);
         buffersNeedUpdate = false;
     }
 
@@ -88,6 +88,10 @@ void ClusteredForwardRenderer::onRender(float dt)
     // a bunch of costly matrix operations: https://floating-point-gui.de/errors/comparison/
     // comparing the absolute error against a rather small epsilon here works as long as the values
     // in the projection matrix aren't getting too large
+    const auto clusterCount = clusters.getClusterCount();
+    const auto clustersX = std::get<0>(clusterCount);
+    const auto clustersY = std::get<1>(clusterCount);
+    const auto clustersZ = std::get<2>(clusterCount);
     bool buildClusters = glm::any(glm::notEqual(projMat, oldProjMat, 0.00001f));
     if(buildClusters)
     {
@@ -97,9 +101,9 @@ void ClusteredForwardRenderer::onRender(float dt)
 
         bgfx::dispatch(vClusterBuilding,
                        clusterBuildingComputeProgram,
-                       ClusterShader::CLUSTERS_X / ClusterShader::CLUSTERS_X_THREADS,
-                       ClusterShader::CLUSTERS_Y / ClusterShader::CLUSTERS_Y_THREADS,
-                       ClusterShader::CLUSTERS_Z / ClusterShader::CLUSTERS_Z_THREADS);
+                       (uint32_t)std::ceil((float)clustersX / ClusterShader::CLUSTERS_X_THREADS),
+                       (uint32_t)std::ceil((float)clustersY / ClusterShader::CLUSTERS_Y_THREADS),
+                       (uint32_t)std::ceil((float)clustersZ / ClusterShader::CLUSTERS_Z_THREADS));
     }
 
     // light culling
@@ -109,9 +113,9 @@ void ClusteredForwardRenderer::onRender(float dt)
 
     bgfx::dispatch(vLightCulling,
                    lightCullingComputeProgram,
-                   ClusterShader::CLUSTERS_X / ClusterShader::CLUSTERS_X_THREADS,
-                   ClusterShader::CLUSTERS_Y / ClusterShader::CLUSTERS_Y_THREADS,
-                   ClusterShader::CLUSTERS_Z / ClusterShader::CLUSTERS_Z_THREADS);
+                   (uint32_t)std::ceil((float)clustersX / ClusterShader::CLUSTERS_X_THREADS),
+                   (uint32_t)std::ceil((float)clustersY / ClusterShader::CLUSTERS_Y_THREADS),
+                   (uint32_t)std::ceil((float)clustersZ / ClusterShader::CLUSTERS_Z_THREADS));
     // lighting
 
     bool debugVis = variables["DEBUG_VIS"] == "true";

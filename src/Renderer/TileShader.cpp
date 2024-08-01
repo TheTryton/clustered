@@ -8,9 +8,7 @@
 
 bgfx::VertexLayout TileShader::TileVertex::layout;
 
-TileShader::TileShader()
-{
-}
+TileShader::TileShader() = default;
 
 void TileShader::initialize()
 {

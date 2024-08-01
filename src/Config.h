@@ -38,6 +38,9 @@ public:
     int maxLights;
     int tilePixelSizeX;
     int tilePixelSizeY;
+    int clustersX;
+    int clustersY;
+    int clustersZ;
     int maxLightsPerTileOrCluster;
     bool movingLights;
 

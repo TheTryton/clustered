@@ -8,28 +8,33 @@
 
 bgfx::VertexLayout ClusterShader::ClusterVertex::layout;
 
-ClusterShader::ClusterShader()
-{
+ClusterShader::ClusterShader() = default;
+/*{
     static_assert(CLUSTERS_Z % CLUSTERS_Z_THREADS == 0,
                   "number of cluster depth slices must be divisible by thread count z-dimension");
-}
+}*/
 
 void ClusterShader::initialize()
 {
     ClusterVertex::init();
 
-    clusterSizesVecUniform = bgfx::createUniform("u_clusterSizesVec", bgfx::UniformType::Vec4);
+    clusterCountVecUniform = bgfx::createUniform("u_clusterCountVec", bgfx::UniformType::Vec4);
+    clusterSizeVecUniform = bgfx::createUniform("u_clusterSizeVec", bgfx::UniformType::Vec4);
     zNearFarVecUniform = bgfx::createUniform("u_zNearFarVec", bgfx::UniformType::Vec4);
 }
 
-void ClusterShader::updateBuffers(uint32_t maxLightsPerCluster)
+void ClusterShader::updateBuffers(uint32_t maxLightsPerCluster, uint32_t clustersX, uint32_t clustersY, uint32_t clustersZ)
 {
-    if(currentMaxLightsPerCluster == maxLightsPerCluster)
+    if(currentMaxLightsPerCluster == maxLightsPerCluster && currentClustersX == clustersX &&
+       currentClustersY == clustersY && currentClustersZ == clustersZ)
     {
         return;
     }
 
     currentMaxLightsPerCluster = maxLightsPerCluster;
+    currentClustersX = clustersX;
+    currentClustersY = clustersY;
+    currentClustersZ = clustersZ;
 
     if(isValid(clustersBuffer))
     {
@@ -46,24 +51,27 @@ void ClusterShader::updateBuffers(uint32_t maxLightsPerCluster)
         bgfx::destroy(lightGridBuffer);
     }
 
+    const auto currentClusterCount = clustersX * clustersY * clustersZ;
+
     clustersBuffer =
-        bgfx::createDynamicVertexBuffer(CLUSTER_COUNT, ClusterVertex::layout, BGFX_BUFFER_COMPUTE_READ_WRITE);
-    lightIndicesBuffer = bgfx::createDynamicIndexBuffer(CLUSTER_COUNT * currentMaxLightsPerCluster,
+        bgfx::createDynamicVertexBuffer(currentClusterCount, ClusterVertex::layout, BGFX_BUFFER_COMPUTE_READ_WRITE);
+    lightIndicesBuffer = bgfx::createDynamicIndexBuffer(currentClusterCount * currentMaxLightsPerCluster,
                                                         BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_INDEX32);
-    lightGridBuffer = bgfx::createDynamicIndexBuffer(CLUSTER_COUNT,
+    lightGridBuffer = bgfx::createDynamicIndexBuffer(currentClusterCount,
                                                      BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_INDEX32);
 }
 
 void ClusterShader::shutdown()
 {
-    bgfx::destroy(clusterSizesVecUniform);
+    bgfx::destroy(clusterCountVecUniform);
+    bgfx::destroy(clusterSizeVecUniform);
     bgfx::destroy(zNearFarVecUniform);
 
     bgfx::destroy(clustersBuffer);
     bgfx::destroy(lightIndicesBuffer);
     bgfx::destroy(lightGridBuffer);
 
-    clusterSizesVecUniform = zNearFarVecUniform = BGFX_INVALID_HANDLE;
+    clusterCountVecUniform = clusterSizeVecUniform = zNearFarVecUniform = BGFX_INVALID_HANDLE;
     clustersBuffer = BGFX_INVALID_HANDLE;
     lightIndicesBuffer = lightGridBuffer = BGFX_INVALID_HANDLE;
 }
@@ -72,11 +80,16 @@ void ClusterShader::setUniforms(const Scene* scene, uint16_t screenWidth, uint16
 {
     assert(scene != nullptr);
 
-    float clusterSizesVec[4] = { std::ceil((float)screenWidth / CLUSTERS_X),
-                                 std::ceil((float)screenHeight / CLUSTERS_Y),
-                                    (float)currentMaxLightsPerCluster };
+    float clusterCountVec[4] = { (float)currentClustersX,
+                                 (float)currentClustersY,
+                                 (float)currentClustersZ };
+    bgfx::setUniform(clusterCountVecUniform, clusterCountVec);
 
-    bgfx::setUniform(clusterSizesVecUniform, clusterSizesVec);
+    float clusterSizesVec[4] = { std::ceil((float)screenWidth / (float)currentClustersX),
+                                 std::ceil((float)screenHeight / (float)currentClustersY),
+                                    (float)currentMaxLightsPerCluster };
+    bgfx::setUniform(clusterSizeVecUniform, clusterSizesVec);
+
     float zNearFarVec[4] = { scene->camera.zNear, scene->camera.zFar };
     bgfx::setUniform(zNearFarVecUniform, zNearFarVec);
 }
@@ -91,4 +104,9 @@ void ClusterShader::bindBuffers(bool lightingPass) const
     }
     bgfx::setBuffer(Samplers::CLUSTERS_LIGHTINDICES, lightIndicesBuffer, access);
     bgfx::setBuffer(Samplers::CLUSTERS_LIGHTGRID, lightGridBuffer, access);
+}
+
+std::tuple<uint32_t, uint32_t, uint32_t> ClusterShader::getClusterCount() const
+{
+    return std::make_tuple(currentClustersX, currentClustersY, currentClustersZ);
 }
