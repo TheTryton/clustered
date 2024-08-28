@@ -8,10 +8,6 @@
 // taken from Doom
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
-//#define CLUSTERS_X 16
-//#define CLUSTERS_Y 8
-//#define CLUSTERS_Z 48
-
 // workgroup size of the culling compute shader
 // D3D compute shaders only allow up to 1024 threads per workgroup
 // GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS also only guarantees 1024
@@ -50,8 +46,6 @@ struct Cluster
 {
     vec4 frustrumPlanes[4];
     vec4 depthNearFar;
-    //vec3 minBounds;
-    //vec3 maxBounds;
 };
 
 struct LightGrid
@@ -95,8 +89,6 @@ Cluster getCluster(uint index)
         cluster.frustrumPlanes[3] = b_clusters[5 * index + 3];
         cluster.depthNearFar = b_clusters[5 * index + 4];
     }
-    //cluster.minBounds = b_clusters[2 * index + 0].xyz;
-    //cluster.maxBounds = b_clusters[2 * index + 1].xyz;
     return cluster;
 }
 #endif

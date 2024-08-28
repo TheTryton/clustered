@@ -18,6 +18,7 @@ public:
 
     void initialize();
     void reset(uint16_t width, uint16_t height);
+    void resetWindow(uint16_t width, uint16_t height);
     void optionsChanged();
     void render(float dt);
     void shutdown();
@@ -90,7 +91,7 @@ protected:
     void blitToScreen(bgfx::ViewId view = MAX_VIEW);
 
     static bgfx::TextureFormat::Enum findDepthFormat(uint64_t textureFlags, bool stencil = false);
-    static bgfx::FrameBufferHandle createFrameBuffer(bool hdr = true, bool depth = true);
+    bgfx::FrameBufferHandle createFrameBuffer(bool hdr = true, bool depth = true);
 
     std::unordered_map<std::string, std::string> variables;
 
@@ -98,6 +99,9 @@ protected:
 
     const Scene* scene = nullptr;
     const Config* config = nullptr;
+
+    uint16_t windowWidth = 0;
+    uint16_t windowHeight = 0;
 
     uint16_t width = 0;
     uint16_t height = 0;

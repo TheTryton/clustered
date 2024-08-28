@@ -168,8 +168,7 @@ void ClusterUI::update(float dt)
 
         ImGui::Checkbox("Show log", &app.config->showLog);
         ImGui::Checkbox("Show performance stats", &app.config->showStatsOverlay);
-        if(buffers)
-            ImGui::Checkbox("Show G-Buffer", &app.config->showBuffers);
+        ImGui::Checkbox("Show G-Buffer/Framebuffer", &app.config->showBuffers);
         if(path == Cluster::RenderPath::TiledSingleForward ||
            path == Cluster::RenderPath::TiledSingleDeferred ||
            path == Cluster::RenderPath::TiledMultipleForward ||
@@ -183,9 +182,9 @@ void ClusterUI::update(float dt)
             ImGui::Checkbox(isClustered ? "Cluster light count visualization" : "Tile light count visualization", &app.config->debugVisualization);
             app.renderer->setVariable("DEBUG_VIS", app.config->debugVisualization ? "true" : "false");
 
-            ImGui::SliderInt(isClustered ? "Max lights per cluster" : "Max lights per tile", &app.config->maxLightsPerTileOrCluster, 4, 8192);
+            ImGui::SliderInt(isClustered ? "Max lights per cluster" : "Max lights per tile", &app.config->maxLightsPerTileOrCluster, 4, 16384);
             ImGui::InputInt(isClustered ? "Max lights per cluster (input)" : "Max lights per tile (input)", &app.config->maxLightsPerTileOrCluster, 0, 0);
-            app.config->maxLightsPerTileOrCluster = std::max(4, std::min(app.config->maxLightsPerTileOrCluster, 8192));
+            app.config->maxLightsPerTileOrCluster = std::max(4, std::min(app.config->maxLightsPerTileOrCluster, 16384));
 
             if(!isClustered)
             {
@@ -199,24 +198,67 @@ void ClusterUI::update(float dt)
 
                 app.config->tilePixelSizeX = std::max(4, std::min(app.config->tilePixelSizeX, 128));
                 app.config->tilePixelSizeY = std::max(4, std::min(app.config->tilePixelSizeY, 128));
+
+                auto tilesX = (app.config->backbufferResolutionX + app.config->tilePixelSizeX - 1) /
+                              app.config->tilePixelSizeX;
+                auto tilesY = (app.config->backbufferResolutionY + app.config->tilePixelSizeY - 1) /
+                              app.config->tilePixelSizeY;
+                ImGui::LabelText("Tiles [X] x [Y]","%i x %i", tilesX, tilesY);
             }
             else
             {
-                ImGui::SliderInt("Clusters [X]", &app.config->clustersX, 4, 128);
-                ImGui::SameLine();
-                ImGui::SliderInt("Clusters [Y]", &app.config->clustersY, 4, 128);
+                ImGui::Checkbox("Treat clusters X, Y as cluster pixel size", &app.config->treatClusterXYasPixelSize);
+                if(app.config->treatClusterXYasPixelSize)
+                {
+                    ImGui::SliderInt("Clusters pixel size [X]", &app.config->clustersX, 4, 128);
+                    ImGui::SameLine();
+                    ImGui::SliderInt("Clusters pixel size [Y]", &app.config->clustersY, 4, 128);
+                }
+                else
+                {
+                    ImGui::SliderInt("Clusters [X]", &app.config->clustersX, 4, 128);
+                    ImGui::SameLine();
+                    ImGui::SliderInt("Clusters [Y]", &app.config->clustersY, 4, 128);
+                }
                 ImGui::SameLine();
                 ImGui::SliderInt("Clusters [Z]", &app.config->clustersZ, 4, 128);
 
-                ImGui::InputInt("Clusters [X] (input)", &app.config->clustersX, 0, 0);
-                ImGui::SameLine();
-                ImGui::InputInt("Clusters [Y] (input)", &app.config->clustersY, 0, 0);
+                if(app.config->treatClusterXYasPixelSize)
+                {
+                    ImGui::InputInt("Clusters pixel size [X] (input)", &app.config->clustersX, 0, 0);
+                    ImGui::SameLine();
+                    ImGui::InputInt("Clusters pixel size [Y] (input)", &app.config->clustersY, 0, 0);
+                }
+                else
+                {
+                    ImGui::InputInt("Clusters [X] (input)", &app.config->clustersX, 0, 0);
+                    ImGui::SameLine();
+                    ImGui::InputInt("Clusters [Y] (input)", &app.config->clustersY, 0, 0);
+                }
                 ImGui::SameLine();
                 ImGui::InputInt("Clusters [Z] (input)", &app.config->clustersZ, 0, 0);
 
                 app.config->clustersX = std::max(4, std::min(app.config->clustersX, 128));
                 app.config->clustersY = std::max(4, std::min(app.config->clustersY, 128));
                 app.config->clustersZ = std::max(4, std::min(app.config->clustersZ, 128));
+
+                int clustersX;
+                int clustersY;
+                if(app.config->treatClusterXYasPixelSize)
+                {
+                    clustersX = (app.config->backbufferResolutionX + app.config->clustersX - 1) /
+                                     app.config->clustersX;
+                    clustersY = (app.config->backbufferResolutionY + app.config->clustersY - 1) /
+                                     app.config->clustersY;
+                }
+                else
+                {
+                    clustersX = app.config->clustersX;
+                    clustersY = app.config->clustersY;
+                }
+                auto clustersZ = app.config->clustersZ;
+
+                ImGui::LabelText("Clusters [X] x [Y] x [Z]", "%i x %i x %i", clustersX, clustersY, clustersZ);
             }
 
             app.renderer->optionsChanged();
@@ -288,7 +330,8 @@ void ClusterUI::update(float dt)
         const double toGpuMs = 1000.0 / double(stats->gpuTimerFreq);
 
         ImGui::Text("Backend: %s", bgfx::getRendererName(bgfx::getRendererType()));
-        ImGui::Text("Buffer size: %u x %u px", stats->width, stats->height);
+        ImGui::Text("Resolution: %u x %u px", stats->width, stats->height);
+        ImGui::Text("Back buffer size: %u x %u px", app.config->backbufferResolutionX, app.config->backbufferResolutionY);
         ImGui::Text("Triangles: %u", stats->numPrims[bgfx::Topology::TriList]);
         ImGui::Text("Draw calls: %u", stats->numDraw);
         ImGui::Text("Compute calls: %u", stats->numCompute);
@@ -325,8 +368,8 @@ void ClusterUI::update(float dt)
                              0.0f,
                              30.0f,
                              ImVec2(overlayWidth, 50));
-            ImGui::Text("CPU: %.2f ms", float(stats->cpuTimeEnd - stats->cpuTimeBegin) * toCpuMs);
-            ImGui::Text("GPU: %.2f ms", float(stats->gpuTimeEnd - stats->gpuTimeBegin) * toGpuMs);
+            ImGui::Text("CPU: %.6f ms", float(stats->cpuTimeEnd - stats->cpuTimeBegin) * toCpuMs);
+            ImGui::Text("GPU: %.6f ms", float(stats->gpuTimeEnd - stats->gpuTimeBegin) * toGpuMs);
             ImGui::Text("Total: %.2f ms", frameTimeValues[offset]);
         }
         if(app.config->profile && app.config->overlays.profiler)
@@ -365,14 +408,14 @@ void ClusterUI::update(float dt)
 
                             if(drawBar("CPU", cpuWidth, maxWidth, itemHeight, cpuColor))
                             {
-                                ImGui::SetTooltip("%s -- CPU: %.2f ms", viewStats.name, cpuElapsed);
+                                ImGui::SetTooltip("%s -- CPU: %.6f ms", viewStats.name, cpuElapsed);
                             }
 
                             ImGui::SameLine();
 
                             if(drawBar("GPU", gpuWidth, maxWidth, itemHeight, gpuColor))
                             {
-                                ImGui::SetTooltip("%s -- GPU: %.2f ms", viewStats.name, gpuElapsed);
+                                ImGui::SetTooltip("%s -- GPU: %.6f ms", viewStats.name, gpuElapsed);
                             }
                         }
                     }
@@ -442,7 +485,7 @@ void ClusterUI::update(float dt)
         ImGui::End();
     }
 
-    if(buffers && app.config->showBuffers)
+    if(app.config->showBuffers)
     {
         ImGui::SetNextWindowBgAlpha(0.5f);
         ImGui::Begin("Buffers",
@@ -456,7 +499,7 @@ void ClusterUI::update(float dt)
         ImVec4 tintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
         ImVec4 borderColor = ImVec4(1.0f, 1.0f, 1.0f, 0.5f);
 
-        for(size_t i = 0; buffers[i].name != nullptr; i++)
+        for(size_t i = 0; buffers && buffers[i].name != nullptr; i++)
         {
             ImGui::Text("%s", buffers[i].name);
             ImTextureID texId = ImTextureID(uintptr_t(buffers[i].handle.idx));
@@ -470,6 +513,18 @@ void ClusterUI::update(float dt)
             }
             ImGui::Image(texId, texSize, topLeft, bottomRight, tintColor, borderColor);
         }
+
+        ImTextureID texId = ImTextureID(uintptr_t(bgfx::getTexture(app.renderer->frameBuffer, 0).idx));
+        ImVec2 texSize = io.DisplaySize;
+        texSize = { 128.0f, 128.0f };
+        ImVec2 topLeft = ImVec2(0.0f, 0.0f);
+        ImVec2 bottomRight = ImVec2(1.0f, 1.0f);
+        if(bgfx::getCaps()->originBottomLeft)
+        {
+            std::swap(topLeft.y, bottomRight.y);
+        }
+        ImGui::Text("%s", "Framebuffer");
+        ImGui::Image(texId, texSize, topLeft, bottomRight, tintColor, borderColor);
 
         // move window to bottom right
         ImVec2 displaySize = io.DisplaySize;

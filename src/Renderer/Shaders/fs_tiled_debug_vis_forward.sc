@@ -17,6 +17,9 @@ void main()
     uint tile = getTileIndex(gl_FragCoord);
     uint lightCount = getLightGridCount(tile);
 
+    if(lightCount == u_maxLightsPerTile)
+        ++lightCount;
+
     vec3 radianceOut = getAmbientLight().irradiance * mat.diffuseColor * mat.occlusion;
     vec3 lightCountColor = turboColormap(float(lightCount) / u_maxLightsPerTile);
     gl_FragColor = vec4(radianceOut * 0.8 + lightCountColor * 0.2, 1.0);

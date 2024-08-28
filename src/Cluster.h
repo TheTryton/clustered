@@ -5,18 +5,33 @@
 #include <spdlog/spdlog.h>
 #include <map>
 #include <memory>
+#include <random>
+#include <chrono>
 
 class ClusterUI;
 class Config;
 class Scene;
 class Renderer;
 
+struct stats
+{
+    struct view
+    {
+        double avgCpuTime{};
+        double avgGpuTime{};
+    };
+
+    std::map<std::string, view> views;
+    double avgFrameTimeCpu{};
+    double avgFrameTimeGpu{};
+};
+
 class Cluster : public bigg::Application
 {
     friend class ClusterUI;
 
 public:
-    Cluster();
+    Cluster(const Config& config);
     ~Cluster();
 
     int run(int argc, char* argv[]);
@@ -52,6 +67,7 @@ public:
 
     void generateLights(unsigned int count);
     void moveLights(float t, float dt);
+    stats getFrameTimeStatistics() const;
 
 private:
     class BgfxCallbacks : public bgfx::CallbackI
@@ -84,6 +100,9 @@ private:
         Cluster& app;
     };
 
+    std::mt19937 mt{1337};
+    std::uniform_real_distribution<float> dist{0.0f, 1.0f};
+
     spdlog::sink_ptr logFileSink = nullptr;
 
     double mouseX = -1.0, mouseY = -1.0;
@@ -98,4 +117,8 @@ private:
     std::unique_ptr<Scene> scene;
 
     std::unique_ptr<Renderer> renderer;
+
+    std::chrono::high_resolution_clock::time_point startMeasurement;
+    stats frameTimeStatistics{};
+    uint64_t completedFrames{};
 };

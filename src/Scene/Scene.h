@@ -41,7 +41,6 @@ public:
 
 private:
     static bx::DefaultAllocator allocator;
-    AssimpLogSource logSource;
 
     Mesh loadMesh(const aiMesh* mesh); // not static because it changes minBounds and maxBounds
     static Material loadMaterial(const aiMaterial* material, const char* dir);

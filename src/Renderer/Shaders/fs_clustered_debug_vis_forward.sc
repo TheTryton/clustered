@@ -11,6 +11,9 @@ void main()
     uint cluster = getClusterIndex(gl_FragCoord);
     uint lightCount = getLightGridCount(cluster);
 
+    if(lightCount == u_maxLightsPerCluster)
+        ++lightCount;
+
     vec3 lightCountColor = turboColormap(float(lightCount) / u_maxLightsPerCluster);
     gl_FragColor = vec4(lightCountColor, 1.0);
 }

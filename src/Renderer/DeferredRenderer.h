@@ -71,6 +71,6 @@ private:
     bgfx::ProgramHandle pointLightProgram = BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle transparencyProgram = BGFX_INVALID_HANDLE;
 
-    static bgfx::FrameBufferHandle createGBuffer();
+    bgfx::FrameBufferHandle createGBuffer();
     void bindGBuffer();
 };

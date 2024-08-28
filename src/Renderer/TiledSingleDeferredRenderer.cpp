@@ -112,7 +112,7 @@ void TiledSingleDeferredRenderer::onReset()
         // we use a different depth texture and just blit it between the geometry and light pass
         const uint64_t flags = BGFX_TEXTURE_BLIT_DST | gBufferSamplerFlags;
         bgfx::TextureFormat::Enum depthFormat = findDepthFormat(flags);
-        lightDepthTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, depthFormat, flags);
+        lightDepthTexture = bgfx::createTexture2D(width, height, false, 1, depthFormat, flags);
 
         gBufferTextures[GBufferAttachment::Depth].handle = lightDepthTexture;
     }
@@ -194,19 +194,14 @@ void TiledSingleDeferredRenderer::onRender(float dt)
     const auto tilePixelSizes = tiles.getTilePixelSize();
     const auto tilePixelSizeX = std::get<0>(tilePixelSizes);
     const auto tilePixelSizeY = std::get<1>(tilePixelSizes);
-    bool buildTiles = glm::any(glm::notEqual(projMat, oldProjMat, 0.00001f));
-    if(buildTiles)
-    {
-        oldProjMat = projMat;
 
-        tiles.bindBuffers(false /*lightingPass*/); // write access, all buffers
+    tiles.bindBuffers(false /*lightingPass*/); // write access, all buffers
 
-        bgfx::dispatch(vTileBuilding,
-                       tileBuildingComputeProgram,
-                       (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX) / TileShader::TILES_X_THREADS),
-                       (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY) / TileShader::TILES_Y_THREADS),
-                       1);
-    }
+    bgfx::dispatch(vTileBuilding,
+                   tileBuildingComputeProgram,
+                   (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX) / TileShader::TILES_X_THREADS),
+                   (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY) / TileShader::TILES_Y_THREADS),
+                   1);
 
     // light culling
 
@@ -331,12 +326,12 @@ bgfx::FrameBufferHandle TiledSingleDeferredRenderer::createGBuffer()
     for(size_t i = 0; i < GBufferAttachment::Depth; i++)
     {
         assert(bgfx::isTextureValid(0, false, 1, gBufferAttachmentFormats[i], flags));
-        textures[i] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, gBufferAttachmentFormats[i], flags);
+        textures[i] = bgfx::createTexture2D(width, height, false, 1, gBufferAttachmentFormats[i], flags);
     }
 
     bgfx::TextureFormat::Enum depthFormat = findDepthFormat(flags);
     assert(depthFormat != bgfx::TextureFormat::Count);
-    textures[Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, depthFormat, flags);
+    textures[Depth] = bgfx::createTexture2D(width, height, false, 1, depthFormat, flags);
 
     bgfx::FrameBufferHandle gb = bgfx::createFrameBuffer((uint8_t)GBufferAttachment::Count, textures, true);
 

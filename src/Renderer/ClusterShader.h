@@ -15,7 +15,7 @@ public:
 
     void setUniforms(const Scene* scene, uint16_t screenWidth, uint16_t screenHeight) const;
     void bindBuffers(bool lightingPass = true) const;
-    void updateBuffers(uint32_t maxLightsPerCluster, uint32_t clustersX, uint32_t clustersY, uint32_t clustersZ);
+    void updateBuffers(uint32_t maxLightsPerCluster, uint16_t screenWidth, uint16_t screenHeight, bool clustersXYAsPixelSizes, uint32_t clustersX, uint32_t clustersY, uint32_t clustersZ);
 
     std::tuple<uint32_t, uint32_t, uint32_t> getClusterCount() const;
 
@@ -54,6 +54,7 @@ private:
     };
 
     uint32_t currentMaxLightsPerCluster{};
+    bool currentClustersXYAsPixelSizes{};
     uint32_t currentClustersX{};
     uint32_t currentClustersY{};
     uint32_t currentClustersZ{};

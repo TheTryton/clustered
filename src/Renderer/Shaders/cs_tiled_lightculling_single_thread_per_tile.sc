@@ -48,14 +48,14 @@ void main()
     {
         PointLight light = getPointLight(lightIndex);
         light.position = mul(u_view, vec4(light.position, 1.0)).xyz;
-        light.radius = length(mul(u_view, vec4(light.radius, 0.0, 0.0, 0.0)));
+        //light.radius = length(mul(u_view, vec4(light.radius, 0.0, 0.0, 0.0)));
         if(pointLightIntersectsTile(light, tile, halfZ))
         {
             b_tileLightIndices[tileOffset + visibleCount] = lightIndex;
             visibleCount++;
         }
 
-        if(visibleCount == u_maxLightsPerTile)
+        if(visibleCount >= u_maxLightsPerTile)
             break;
     }
 

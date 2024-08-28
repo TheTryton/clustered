@@ -44,7 +44,9 @@ void ClusteredForwardRenderer::onRender(float dt)
 {
     if(buffersNeedUpdate)
     {
-        clusters.updateBuffers(config->maxLightsPerTileOrCluster, config->clustersX, config->clustersY, config->clustersZ);
+        clusters.updateBuffers(config->maxLightsPerTileOrCluster,
+                               width, height, config->treatClusterXYasPixelSize,
+                               config->clustersX, config->clustersY, config->clustersZ);
         buffersNeedUpdate = false;
     }
 
@@ -92,19 +94,14 @@ void ClusteredForwardRenderer::onRender(float dt)
     const auto clustersX = std::get<0>(clusterCount);
     const auto clustersY = std::get<1>(clusterCount);
     const auto clustersZ = std::get<2>(clusterCount);
-    bool buildClusters = glm::any(glm::notEqual(projMat, oldProjMat, 0.00001f));
-    if(buildClusters)
-    {
-        oldProjMat = projMat;
 
-        clusters.bindBuffers(false /*lightingPass*/); // write access, all buffers
+    clusters.bindBuffers(false /*lightingPass*/); // write access, all buffers
 
-        bgfx::dispatch(vClusterBuilding,
-                       clusterBuildingComputeProgram,
-                       (uint32_t)std::ceil((float)clustersX / ClusterShader::CLUSTERS_X_THREADS),
-                       (uint32_t)std::ceil((float)clustersY / ClusterShader::CLUSTERS_Y_THREADS),
-                       (uint32_t)std::ceil((float)clustersZ / ClusterShader::CLUSTERS_Z_THREADS));
-    }
+    bgfx::dispatch(vClusterBuilding,
+                   clusterBuildingComputeProgram,
+                   (uint32_t)std::ceil((float)clustersX / ClusterShader::CLUSTERS_X_THREADS),
+                   (uint32_t)std::ceil((float)clustersY / ClusterShader::CLUSTERS_Y_THREADS),
+                   (uint32_t)std::ceil((float)clustersZ / ClusterShader::CLUSTERS_Z_THREADS));
 
     // light culling
 

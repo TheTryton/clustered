@@ -109,7 +109,7 @@ void main()
                 visibleCount++;
             }
 
-            if(visibleCount == u_maxLightsPerCluster)
+            if(visibleCount >= u_maxLightsPerCluster)
                 break;
         }
 

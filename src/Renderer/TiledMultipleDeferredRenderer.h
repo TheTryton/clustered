@@ -81,6 +81,6 @@ private:
     bgfx::TextureHandle lightDepthTexture = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle accumFrameBuffer = BGFX_INVALID_HANDLE;
 
-    static bgfx::FrameBufferHandle createGBuffer();
+    bgfx::FrameBufferHandle createGBuffer();
     void bindGBuffer();
 };

@@ -18,10 +18,10 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <random>
 
-Cluster::Cluster() :
+Cluster::Cluster(const Config& config) :
     bigg::Application("Cluster", 1280, 720),
     callbacks(*this),
-    config(std::make_unique<Config>()),
+    config(std::make_unique<Config>(config)),
     ui(std::make_unique<ClusterUI>(*this)),
     scene(std::make_unique<Scene>())
 {
@@ -119,15 +119,28 @@ void Cluster::initialize(int _argc, char* _argv[])
     if(!config->customScene)
     {
         scene->camera.lookAt({ -7.0f, 2.0f, 0.0f }, scene->center, glm::vec3(0.0f, 1.0f, 0.0f));
-        scene->pointLights.lights = { // pos, power
-                                      { { -5.0f, 0.3f, 0.0f }, { 100.0f, 100.0f, 100.0f } },
-                                      { { 0.0f, 0.3f, 0.0f }, { 100.0f, 100.0f, 100.0f } },
-                                      { { 5.0f, 0.3f, 0.0f }, { 100.0f, 100.0f, 100.0f } }
-        };
+        if(config->useLightsFromScene)
+        {
+            scene->pointLights.lights = { // pos, power
+                                          { { -5.0f, 0.3f, 0.0f }, { 100.0f, 100.0f, 100.0f } },
+                                          { { 0.0f, 0.3f, 0.0f }, { 100.0f, 100.0f, 100.0f } },
+                                          { { 5.0f, 0.3f, 0.0f }, { 100.0f, 100.0f, 100.0f } }
+            };
+
+            config->lights = (int)scene->pointLights.lights.size();
+
+            scene->pointLights.update();
+        }
+        else
+        {
+            generateLights(config->lights);
+        }
     }
 
-    scene->pointLights.update();
-    config->lights = (int)scene->pointLights.lights.size();
+    if(config->measureOverSeconds > 0)
+    {
+        startMeasurement = std::chrono::high_resolution_clock::now();
+    }
 }
 
 void Cluster::onReset()
@@ -137,7 +150,8 @@ void Cluster::onReset()
     if(!renderer)
         setRenderPath(config->renderPath);
 
-    renderer->reset(uint16_t(getWidth()), uint16_t(getHeight()));
+    renderer->resetWindow(uint16_t(getWidth()), uint16_t(getHeight()));
+    renderer->reset(config->backbufferResolutionX, config->backbufferResolutionY);
 }
 
 void Cluster::onKey(int key, int scancode, int action, int mods)
@@ -193,6 +207,20 @@ void Cluster::onScroll(double xoffset, double yoffset)
 
 void Cluster::update(float dt)
 {
+    using seconds = std::chrono::duration<long>;
+    const auto now = std::chrono::high_resolution_clock::now();
+    if(config->measureOverSeconds > 0 && std::chrono::duration_cast<seconds>(now - startMeasurement).count() >= config->measureOverSeconds)
+    {
+        frameTimeStatistics.avgFrameTimeCpu /= static_cast<double>(completedFrames);
+        frameTimeStatistics.avgFrameTimeGpu /= static_cast<double>(completedFrames);
+        for(auto& view : frameTimeStatistics.views)
+        {
+            view.second.avgCpuTime /= static_cast<double>(completedFrames);
+            view.second.avgGpuTime /= static_cast<double>(completedFrames);
+        }
+        close();
+        return;
+    }
     const float t = (float)glfwGetTime();
 
     float velocity = scene->diagonal / 5.0f; // m/s
@@ -214,6 +242,23 @@ void Cluster::update(float dt)
     scene->pointLights.update();
 
     renderer->render(dt);
+    if(config->measureOverSeconds > 0)
+    {
+        ++completedFrames;
+
+        const bgfx::Stats* stats = bgfx::getStats();
+        const double toCpuUs = 1e9 / double(stats->cpuTimerFreq);
+        const double toGpuUs = 1e9 / double(stats->gpuTimerFreq);
+
+        frameTimeStatistics.avgFrameTimeCpu += double(stats->cpuTimeEnd - stats->cpuTimeBegin) * toCpuUs;
+        frameTimeStatistics.avgFrameTimeGpu += double(stats->gpuTimeEnd - stats->gpuTimeBegin) * toGpuUs;
+        for(int i = 0; i < stats->numViews; i++)
+        {
+            const bgfx::ViewStats& viewStats = stats->viewStats[i];
+            frameTimeStatistics.views[viewStats.name].avgCpuTime += double(viewStats.cpuTimeEnd - viewStats.cpuTimeBegin) * toCpuUs;
+            frameTimeStatistics.views[viewStats.name].avgGpuTime += double(viewStats.gpuTimeEnd - viewStats.gpuTimeBegin) * toGpuUs;
+        }
+    }
     ui->update(dt);
 }
 
@@ -325,7 +370,8 @@ void Cluster::setRenderPath(RenderPath path)
             break;
     }
 
-    renderer->reset(getWidth(), getHeight());
+    renderer->resetWindow(getWidth(), getHeight());
+    renderer->reset(config->backbufferResolutionX, config->backbufferResolutionY);
     renderer->initialize();
 
     config->renderPath = path;
@@ -347,11 +393,12 @@ void Cluster::generateLights(unsigned int count)
 
     constexpr float POWER_MIN = 20.0f;
     constexpr float POWER_MAX = 100.0f;
+    constexpr float POWER = 50.0f;
 
-    std::random_device rd;
-    std::seed_seq seed = { rd() };
-    std::mt19937 mt(seed);
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    //std::random_device rd;
+    //std::seed_seq seed = {1337};// { rd() };
+    //std::mt19937 mt(seed);
+    //std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
     for(size_t i = keep; i < count; i++)
     {
@@ -362,7 +409,7 @@ void Cluster::generateLights(unsigned int count)
             position.y = glm::abs(position.y);
 
         glm::vec3 color = glm::vec3(dist(mt), dist(mt), dist(mt));
-        glm::vec3 power = color * (dist(mt) * (POWER_MAX - POWER_MIN) + POWER_MIN);
+        glm::vec3 power = color * POWER;//(dist(mt) * (POWER_MAX - POWER_MIN) + POWER_MIN);
         lights[i] = { position, power };
     }
 }
@@ -379,4 +426,9 @@ void Cluster::moveLights(float t, float dt)
             glm::mat3(glm::rotate(glm::identity<glm::mat4>(), angle, glm::vec3(0.0f, 1.0f, 0.0f))) * light.position;
         //light.position += glm::sin(glm::vec3(t) * glm::vec3(1.0f, 2.0f, 3.0f)) * translationExtent * dt;
     }
+}
+
+stats Cluster::getFrameTimeStatistics() const
+{
+    return frameTimeStatistics;
 }

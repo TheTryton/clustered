@@ -34,15 +34,20 @@ public:
 
     const char* sceneFile; // gltf file to load *
     bool customScene;      // not the standard Sponza scene, don't place debug lights/camera *
+    bool useLightsFromScene;
     int lights;
     int maxLights;
+    int backbufferResolutionX;
+    int backbufferResolutionY;
     int tilePixelSizeX;
     int tilePixelSizeY;
+    bool treatClusterXYasPixelSize;
     int clustersX;
     int clustersY;
     int clustersZ;
     int maxLightsPerTileOrCluster;
     bool movingLights;
+    int measureOverSeconds;
 
     // UI
 

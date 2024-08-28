@@ -21,7 +21,6 @@ Scene::Scene() :
     ambientLight({ { 0.03f, 0.03f, 0.03f } })
 {
     clear();
-    Assimp::DefaultLogger::set(&logSource);
 }
 
 void Scene::init()
@@ -166,8 +165,8 @@ bool Scene::load(const char* file)
             {
                 Log->info("No camera");
                 camera.lookAt(center - glm::vec3(0.0f, 0.0f, diagonal / 2.0f), center, glm::vec3(0.0f, 1.0f, 0.0f));
-                camera.zFar = diagonal;
-                camera.zNear = camera.zFar / 50.0f;
+                camera.zFar = 500.0f;//diagonal;
+                camera.zNear = 0.2f;//camera.zFar / 50.0f;
             }
 
             loaded = true;

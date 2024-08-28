@@ -48,15 +48,22 @@ void Renderer::initialize()
 
 void Renderer::reset(uint16_t width, uint16_t height)
 {
+    this->width = width;
+    this->height = height;
+
     if(!bgfx::isValid(frameBuffer))
     {
         frameBuffer = createFrameBuffer(true, true);
         bgfx::setName(frameBuffer, "Render framebuffer (pre-postprocessing)");
     }
-    this->width = width;
-    this->height = height;
 
     onReset();
+}
+
+void Renderer::resetWindow(uint16_t width, uint16_t height)
+{
+    this->windowWidth = width;
+    this->windowHeight = height;
 }
 
 void Renderer::optionsChanged()
@@ -186,7 +193,7 @@ void Renderer::blitToScreen(bgfx::ViewId view)
 {
     bgfx::setViewName(view, "Tonemapping");
     bgfx::setViewClear(view, BGFX_CLEAR_NONE);
-    bgfx::setViewRect(view, 0, 0, width, height);
+    bgfx::setViewRect(view, 0, 0, windowWidth, windowHeight);
     bgfx::setViewFrameBuffer(view, BGFX_INVALID_HANDLE);
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_CULL_CW);
     bgfx::TextureHandle frameBufferTexture = bgfx::getTexture(frameBuffer, 0);
@@ -235,14 +242,14 @@ bgfx::FrameBufferHandle Renderer::createFrameBuffer(bool hdr, bool depth)
         hdr ? bgfx::TextureFormat::RGBA16F : bgfx::TextureFormat::BGRA8; // BGRA is often faster (internal GPU format)
     assert(bgfx::isTextureValid(0, false, 1, format, BGFX_TEXTURE_RT | samplerFlags));
     textures[attachments++] =
-        bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, format, BGFX_TEXTURE_RT | samplerFlags);
+        bgfx::createTexture2D(width, height, false, 1, format, BGFX_TEXTURE_RT | samplerFlags);
 
     if(depth)
     {
         bgfx::TextureFormat::Enum depthFormat = findDepthFormat(BGFX_TEXTURE_RT_WRITE_ONLY | samplerFlags);
         assert(depthFormat != bgfx::TextureFormat::Enum::Count);
         textures[attachments++] = bgfx::createTexture2D(
-            bgfx::BackbufferRatio::Equal, false, 1, depthFormat, BGFX_TEXTURE_RT_WRITE_ONLY | samplerFlags);
+            width, height, false, 1, depthFormat, BGFX_TEXTURE_RT_WRITE_ONLY | samplerFlags);
     }
 
     bgfx::FrameBufferHandle fb = bgfx::createFrameBuffer(attachments, textures, true);

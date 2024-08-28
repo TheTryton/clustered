@@ -91,19 +91,14 @@ void TiledSingleForwardRenderer::onRender(float dt)
     const auto tilePixelSizes = tiles.getTilePixelSize();
     const auto tilePixelSizeX = std::get<0>(tilePixelSizes);
     const auto tilePixelSizeY = std::get<1>(tilePixelSizes);
-    bool buildTiles = glm::any(glm::notEqual(projMat, oldProjMat, 0.00001f));
-    if(buildTiles)
-    {
-        oldProjMat = projMat;
 
-        tiles.bindBuffers(false /*lightingPass*/); // write access, all buffers
+    tiles.bindBuffers(false /*lightingPass*/); // write access, all buffers
 
-        bgfx::dispatch(vTileBuilding,
-                       tileBuildingComputeProgram,
-                       (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX) / TileShader::TILES_X_THREADS),
-                       (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY) / TileShader::TILES_Y_THREADS),
-                       1);
-    }
+    bgfx::dispatch(vTileBuilding,
+                   tileBuildingComputeProgram,
+                   (uint32_t)std::ceil(std::ceil((float)width / tilePixelSizeX) / TileShader::TILES_X_THREADS),
+                   (uint32_t)std::ceil(std::ceil((float)height / tilePixelSizeY) / TileShader::TILES_Y_THREADS),
+                   1);
 
     // light culling
 

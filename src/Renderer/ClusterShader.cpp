@@ -23,17 +23,32 @@ void ClusterShader::initialize()
     zNearFarVecUniform = bgfx::createUniform("u_zNearFarVec", bgfx::UniformType::Vec4);
 }
 
-void ClusterShader::updateBuffers(uint32_t maxLightsPerCluster, uint32_t clustersX, uint32_t clustersY, uint32_t clustersZ)
+void ClusterShader::updateBuffers(uint32_t maxLightsPerCluster, uint16_t screenWidth, uint16_t screenHeight, bool clustersXYAsPixelSizes, uint32_t clustersX, uint32_t clustersY, uint32_t clustersZ)
 {
-    if(currentMaxLightsPerCluster == maxLightsPerCluster && currentClustersX == clustersX &&
-       currentClustersY == clustersY && currentClustersZ == clustersZ)
+    uint32_t actualClustersX;
+    uint32_t actualClustersY;
+
+    if(clustersXYAsPixelSizes)
+    {
+        actualClustersX = (uint32_t)std::ceil((float)screenWidth / clustersX);
+        actualClustersY = (uint32_t)std::ceil((float)screenHeight / clustersY);
+    }
+    else
+    {
+        actualClustersX = clustersX;
+        actualClustersY = clustersY;
+    }
+
+    if(currentClustersXYAsPixelSizes == clustersXYAsPixelSizes && currentMaxLightsPerCluster == maxLightsPerCluster &&
+       currentClustersX == actualClustersX && currentClustersY == actualClustersY && currentClustersZ == clustersZ)
     {
         return;
     }
 
+    currentClustersXYAsPixelSizes = clustersXYAsPixelSizes;
     currentMaxLightsPerCluster = maxLightsPerCluster;
-    currentClustersX = clustersX;
-    currentClustersY = clustersY;
+    currentClustersX = actualClustersX;
+    currentClustersY = actualClustersY;
     currentClustersZ = clustersZ;
 
     if(isValid(clustersBuffer))
@@ -51,7 +66,9 @@ void ClusterShader::updateBuffers(uint32_t maxLightsPerCluster, uint32_t cluster
         bgfx::destroy(lightGridBuffer);
     }
 
-    const auto currentClusterCount = clustersX * clustersY * clustersZ;
+    const auto currentClusterCount = currentClustersX * currentClustersY * currentClustersZ;
+    if((size_t)currentClusterCount * currentMaxLightsPerCluster > 4ull * 1024 * 1024 * 1024)
+        terminate();
 
     clustersBuffer =
         bgfx::createDynamicVertexBuffer(currentClusterCount, ClusterVertex::layout, BGFX_BUFFER_COMPUTE_READ_WRITE);

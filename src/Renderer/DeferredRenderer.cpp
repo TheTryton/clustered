@@ -115,7 +115,7 @@ void DeferredRenderer::onReset()
         // we use a different depth texture and just blit it between the geometry and light pass
         const uint64_t flags = BGFX_TEXTURE_BLIT_DST | gBufferSamplerFlags;
         bgfx::TextureFormat::Enum depthFormat = findDepthFormat(flags);
-        lightDepthTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, depthFormat, flags);
+        lightDepthTexture = bgfx::createTexture2D(width, height, false, 1, depthFormat, flags);
 
         gBufferTextures[GBufferAttachment::Depth].handle = lightDepthTexture;
     }
@@ -304,12 +304,12 @@ bgfx::FrameBufferHandle DeferredRenderer::createGBuffer()
     for(size_t i = 0; i < GBufferAttachment::Depth; i++)
     {
         assert(bgfx::isTextureValid(0, false, 1, gBufferAttachmentFormats[i], flags));
-        textures[i] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, gBufferAttachmentFormats[i], flags);
+        textures[i] = bgfx::createTexture2D(width, height, false, 1, gBufferAttachmentFormats[i], flags);
     }
 
     bgfx::TextureFormat::Enum depthFormat = findDepthFormat(flags);
     assert(depthFormat != bgfx::TextureFormat::Count);
-    textures[Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, depthFormat, flags);
+    textures[Depth] = bgfx::createTexture2D(width, height, false, 1, depthFormat, flags);
 
     bgfx::FrameBufferHandle gb = bgfx::createFrameBuffer((uint8_t)GBufferAttachment::Count, textures, true);
 

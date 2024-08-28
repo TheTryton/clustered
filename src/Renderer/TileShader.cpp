@@ -33,8 +33,8 @@ void TileShader::updateBuffers(uint16_t screenWidth, uint16_t screenHeight, uint
     currentTilePixelSizeX = tilePixelSizeX;
     currentTilePixelSizeY = tilePixelSizeY;
 
-    const uint16_t currentTilesX = (uint16_t)std::ceil((float)currentWidth / currentTilePixelSizeX);
-    const uint16_t currentTilesY = (uint16_t)std::ceil((float)currentHeight / currentTilePixelSizeY);
+    const auto currentTilesX = (uint16_t)std::ceil((float)currentWidth / currentTilePixelSizeX);
+    const auto currentTilesY = (uint16_t)std::ceil((float)currentHeight / currentTilePixelSizeY);
     const uint32_t currentTilesCount = currentTilesX * currentTilesY;
 
     if(isValid(tilesBuffer))
