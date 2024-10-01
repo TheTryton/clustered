@@ -11,6 +11,7 @@
 #include <bx/string.h>
 #include <IconsForkAwesome.h>
 #include <functional>
+#include <numeric>
 #include <cctype>
 
 using namespace std::placeholders;
@@ -370,7 +371,9 @@ void ClusterUI::update(float dt)
                              ImVec2(overlayWidth, 50));
             ImGui::Text("CPU: %.6f ms", float(stats->cpuTimeEnd - stats->cpuTimeBegin) * toCpuMs);
             ImGui::Text("GPU: %.6f ms", float(stats->gpuTimeEnd - stats->gpuTimeBegin) * toGpuMs);
+            const auto sum = std::accumulate(std::begin(frameTimeValues), std::end(frameTimeValues),0.0f, std::plus<>());
             ImGui::Text("Total: %.2f ms", frameTimeValues[offset]);
+            ImGui::Text("Total (AVG): %.2f ms", sum / std::size(frameTimeValues));
         }
         if(app.config->profile && app.config->overlays.profiler)
         {

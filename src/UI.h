@@ -32,7 +32,7 @@ private:
     ImVector<char> logText;
 
     // update 10 times per second
-    static constexpr float GRAPH_FREQUENCY = 0.1f;
+    static constexpr float GRAPH_FREQUENCY = 0.01f;
     // show 100 values
     static constexpr size_t GRAPH_HISTORY = 100;
 
